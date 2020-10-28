@@ -53,7 +53,11 @@ are highly compressed. With the MongoDB (default) WiredTiger storage engine, com
 collections and indexes, with different options to trade off higher compression rates versus CPU usage. The
 `zstd` library available in MongoDB 4.2 seems appropriate here, with a higher compression rate than the default
 `snappy` option and lower CPU usage (and also higher compression rate) than the `zlib` option (previously the
-only built-in alternative to `snappy`).
+only built-in alternative to `snappy`). A separate mechanism for space reduction in Datomic is the storage of
+entity references as numbers rather than storing larger string values. This is particularly important when
+using the distributed-data model of RDF and thus using fully qualified names. MongoDB supports this space reduction
+strategy, either via the built-in 12-byte ObjectId reference type, or via an alternative strategy such as
+[Crockford's Base32](https://www.crockford.com/base32.html) for deserializable-for-humans numerical entity IDs.
 - *transactions*: A performance concern in the sense that losing data is poor performance (!). MongoDB supports
 multi-document transactions as of 4.0 (and across a sharded deployment as of 4.2), and configurable write- and
 read-concern levels.
