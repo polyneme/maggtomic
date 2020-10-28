@@ -21,7 +21,7 @@ with minimal annotation to support ACID transactions. These transactions are rei
  a transaction id (annotated with
  the transaction wall time as a separate fact), and whether the fact is an assertion or retraction.
 
-To implement the Datamic information model in an open-source system that facilitates agility
+To implement the Datomic information model in an open-source system that facilitates agility
 for the motivating near-term use case -- supporting the NMDC pilot project -- the most important operational
 considerations are familiarity and manageability (see: familiarity) with the chosen technology. `maggtomic`
 chooses MongoDB. Why? 
