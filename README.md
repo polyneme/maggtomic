@@ -25,7 +25,7 @@ To implement the Datomic information model in an open-source system that facilit
 for the motivating near-term use case -- supporting the NMDC pilot project -- the most important operational
 considerations are familiarity and manageability (see: familiarity) with the chosen technology. `maggtomic`
 chooses MongoDB. Why? 
-- Much of the infrastructural support for NMDC is located at two U.S. Dept of Energy (DOE)
+- Much of the infrastructural support for NMDC is located at two U.S. Dept. of Energy (DOE)
 user facilities: Joint Genome Institute (JGI) and National Energy Research Scientific Computing Center (NERSC).
 The JGI Archive and Metadata Organizer (JAMO), which in turn uses NERSC hardware and staff support,
 manages user-facing metadata with MongoDB.
