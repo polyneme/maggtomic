@@ -88,7 +88,7 @@ of a pilot system and thus one must
 
 Finally, `maggtomic` aims to provide interoperability among data sources and sinks via translation between
 JSON-LD serializations (as JSON is a familiar format for stakeholders) and the RDF graphs corresponding
-to values of the maggtomic database as-of given times (and thus as a set of entity-attribute-value tuples
+to values of the `maggtomic` database as-of given times (and thus as a set of entity-attribute-value tuples
 for a given filtration of transactions). Again, Python tooling for this translation is crucial, and e.g.
 the [pyLD](https://github.com/digitalbazaar/pyld) library is a JSON-LD processor that supports necessary
 operations such as expansion+flattening -- context-annotated JSON-LD to RDF -- and
