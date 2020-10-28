@@ -81,8 +81,8 @@ of a MongoDB aggragation pipeline.
 Certainly, not all of the above things need to be implemented prior to productive evaluative use of an
 alpha version of `maggtomic`, but it's important to consider longer-term ramifications of choosing Python
 and MongoDB to implement
-([an ad hoc, informally-specified, bug-ridden, slow implementation of half of](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule))
-the Datomic information model, even if one knows the motivating use case is for agility in the context
+([an ad hoc, informally-specified, bug-ridden, slow implementation of half of](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)) the commercial Datomic offering,
+even if one knows the motivating use case is for agility in the context
 of a pilot system and thus one must
 [plan to throw one away; you will, anyhow.](https://www.tbray.org/ongoing/When/200x/2008/08/22/Build-One-to-Throw-Away)
 
