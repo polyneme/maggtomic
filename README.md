@@ -67,8 +67,11 @@ Datomic, `maggtomic` aims to support a subset of the RDF-based W3C Shapes Constr
 ([SHACL](https://www.w3.org/TR/shacl/)) standard, which admittedly was only finalized as a standard in 2017,
 whereas Datomic schema was launched earlier. Crucially, Python tooling such as
 [pySHACL](https://github.com/RDFLib/pySHACL) exists to validate SHACL shape graphs against data graphs.
-Furthermore, checking for whole-database consistency relative to an OWL ontology could be performed periodically
-using an off-the-shelf reasoner, e.g. [HermiT](http://www.hermit-reasoner.com/).
+Various SHACL node shapes can be checked -- these are analogous to JSON Schema documents, with the
+advantage of structural sharing-by-reference of SHACL property shapes, whereas the equivalent of
+property shapes need to be restated for each JSON Schema document. Through this mechanism, for example,
+a metadata submission can conform to multiple "templates", and suggestions can be derived to bring a
+submission to compliance with one or more templates not initially considered by a submitter.
 - For query, `maggtomic` aims to leverage the expressiveness of the MongoDB query language and the MongoDB
 aggregation pipeline to provide a query interface similar in appearance and composability to Datomic's
 variant of datalog.
