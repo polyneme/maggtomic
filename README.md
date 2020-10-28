@@ -9,7 +9,7 @@ this project is the cultivation of an open (and open-source-powered) data ecosys
 
 A priority for `maggtomic` is agility. The system must be extensible, with little impedance, to ongoing
 introduction of a wide variety of data sources and sinks, all of which need to be findable, accessible,
-interoperable, and reusable ([FAIR](doi.org/10.1038/sdata.2016.18)).
+interoperable, and reusable ([FAIR](https://doi.org/10.1038/sdata.2016.18)).
 
 The [Datomic information model](https://www.infoq.com/articles/Datomic-Information-Model/) facilitates
 such agility via its singular, universal relation. It extends the W3C standard
