@@ -42,7 +42,9 @@ support adequate performance of the Datomic information model? Firstly, `maggtom
 the needs of a pilot project, so *adequate* is an important qualifier on expected performance. Secondly, there
 are several features of MongoDB, and choices for configuration, that help address performance concerns:
 - *redundant indexing to support a variety of access patterns*: Datomic redundantly stores all data in at
-least 4 sort orders, including one index that covers a subset of datoms to support reverse attribute lookup.
+least 4 sort orders, including one index that covers a subset of datoms to support reverse attribute lookup. This
+redundancy is to flexibly support key-value-store-oriented, row-oriented, column-oriented, document-oriented,
+and graph-oriented access patterns in the same system.
 For this functionality, MongoDB supports multiple (covering) compound indexes, and partial indexes,
 on a collection.
 - *compression*: Because (a) all data is stored redundantly in each of several indexes, and (b) all data is
