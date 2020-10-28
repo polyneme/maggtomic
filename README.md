@@ -55,7 +55,7 @@ collections and indexes, with different options to trade off higher compression 
 `snappy` option and lower CPU usage (and also higher compression rate) than the `zlib` option (previously the
 only built-in alternative to `snappy`).
 - *transactions*: A performance concern in the sense that losing data is poor performance (!). MongoDB supports
-multi-document transactions as of 4.0 (and across a shared deployment as of 4.2), and configurable write- and
+multi-document transactions as of 4.0 (and across a sharded deployment as of 4.2), and configurable write- and
 read-concern levels.
 
 There is also the matter of supporting analogues to Datomic schema, query, and
