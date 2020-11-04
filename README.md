@@ -254,8 +254,9 @@ The standard protocol and language for queries across RDF datasets is
 prefix mappings enable readable queries given URI terms. An alternative query
 interface/language may be helpful, in particular one that is based on data
 literals rather than strings, as is the case with Datalog's Clojure/EDN-based
-datalog. For `maggtomic`, the JSON-based query and aggregation languages of
-MongoDB may prove fruitful for adaptation.
+datalog. [Eve](http://docs.witheve.com/v0.3/syntaxreference/) syntax is another
+datalog variant that may be worth investigating. For `maggtomic`, the JSON-based
+query and aggregation languages of MongoDB may prove fruitful for adaptation.
 
 The below diagram shows a user story for saving and running a query across one
 or more datasets of a working context.
