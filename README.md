@@ -131,6 +131,9 @@ more ("0..n") *datasets*, a query* associates with one and only one ("1")
 Each of these entities are described in more detail below as part of the use
 cases illustrated by sequence diagrams.
 
+Furthermore, the choice of entities and their relationships was inspired by
+the [data.world](https://data.world/) catalog service.
+
 # Sequence diagrams for use-case "happy paths"
 
 Below are sequence diagrams for a core set of use cases. Each diagram sketches
