@@ -1,0 +1,22 @@
+title Suggest mappings
+
+actor User as U
+participant Frontend as F
+participant Backend as B
+participant Database as D
+
+U->F: enter context
+F->U: OK
+U->F: enter local ontology
+F->U: OK
+U->F: request suggestions
+F->B: get suggestions
+B->D: fetch from context
+D->B: OK
+opt
+B->B: ensure inferences
+B->D: persist inferences
+end
+B->B: generate suggestions
+B->F: suggested mappings
+F->U: suggested mappings

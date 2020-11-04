@@ -1,0 +1,14 @@
+title Create new context
+
+actor User as U
+participant Frontend as F
+participant Backend as B
+participant Database as D
+
+U->F: new context
+F->B: request context ID
+B->B: generate context ID
+B->D: persist new context
+D->B: OK
+B->F: OK
+F->U: OK

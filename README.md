@@ -111,3 +111,154 @@ For Web API support for metadata submission and search/retrieval,
 `maggtomic` aims to include a [FastAPI](https://fastapi.tiangolo.com/) server module. For browser-based
 metadata submission and basic search/retrieval, `maggtomic` aims to include a (authentication-enabled)
 static-site frontend that connects to the Web API.
+
+# Breadboard for user interface
+
+Below is a
+[breadboard](https://basecamp.com/shapeup/1.3-chapter-04#breadboarding) sketch
+for the `maggtomic` user interface (UI). Each *place* has *affordances*, and the
+*connection lines* show how affordances take a user from place to place. In
+addition, here each place represents an entity, and the breadboard doubles as an
+entity relationship diagram (ERD) with relationship multiplicities labeled on
+the solid edges between entities. Examples: a *context* associates with zero or
+more ("0..n") *datasets*, a query* associates with one and only one ("1")
+*context*, etc.
+
+![breadboard for user interface](design/breadboard-erd.png)
+
+Each of these entities are described in more detail below as part of the use
+cases illustrated by sequence diagrams.
+
+# Sequence diagrams for use-case "happy paths"
+
+Below are sequence diagrams for a core set of use cases. Each diagram sketches
+out a "happy path" and can be used as a checklist for a
+[spike](https://wiki.c2.com/?SpikeSolution), where each arrow in a diagram
+corresponds to one checklist item.
+
+## Create new context
+
+A *context* can be likened to a "project" or "analysis", in that it serves as a
+mechanism to collect information, ask questions about it, and communicate
+answers. It's called a context because (a) it isn't limited to one focused
+activity with a beginning, middle, and end, as is the case for a project or
+analysis; and (b) it's intent is similar to that of a [JSON-LD
+context](https://www.w3.org/TR/json-ld11/#the-context):
+
+> When two people communicate with one another, the conversation takes place in
+a shared environment, typically called "the context of the conversation". This
+shared context allows the individuals to use shortcut terms, like the first name
+of a mutual friend, to communicate more quickly but without losing accuracy. A
+context in JSON-LD works in the same way. It allows two applications to use
+shortcut terms to communicate with one another more efficiently, but without
+losing accuracy.
+
+Specifically, a `maggtomic` context is used to map terms and relationships
+among datasets linked to the context. The below diagram shows a user story for
+creating a new context.
+
+![Create new context](design/sequence-diagrams/Create%20new%20context.png)
+
+## Import new dataset
+
+A *dataset* is an RDF graph, i.e. a set of entity-attribute-value pairs for
+which all entities and attributes are URIs, and values are either URIs or data
+literals (strings, numbers, etc.). A dataset can be used in many
+contexts, and a context can link to many datasets.
+
+To import a new dataset into *maggtomic*, a user does so from a working context;
+other contexts may later also link to and thus use the dataset. A dataset may be
+uploaded, or HTTP endpoint information can be provided. For example, a URL can
+be entered for a simple GET request. More complex endpoint registration could be
+supported, such as using a POST request, providing authentication and other
+headers, asking that the dataset be re-fetched via the endpoint periodically,
+etc.
+
+A user can import a dataset in non-RDF form, for example as a collection of TSV
+tables or as a collection of JSON documents. In this case, the dataset will be
+*atomized*, that is, destructured to atomic statements of the form
+entity-attribute-value. URIs for a newly atomized dataset's entities and
+attributes are prefixed using the user's `maggtomic` user/organization name and
+the context's slug, e.g.
+`http://maggtomic-host.example.com/awesomeorg/my-great-context`, analogous to
+the namespacing of e.g. GitHub code repositories.
+
+The below diagram shows a user story for importing a new dataset.
+
+![Import new dataset](design/sequence-diagrams/Import%20new%20dataset.png)
+
+## Import new ontology
+
+An *ontology* is also an RDF graph, one intended to support inferences for
+and mapping among datasets in a context. Each context has a "local" ontology
+where a user can use the namespace of the context to manage a controlled
+vocabulary (dictionary of terms) and mappings among terms.
+
+A central design goal of `maggtomic` is to facilitate the mapping of imported
+datasets to shared ontologies. Thus, a user should be able to enter a context,
+import their dataset, import an ontology shared with them by a colleague,
+and establish mappings among terms. If another user has already imported
+an ontology of interest, that ontology may be linked from other contexts.
+
+The below diagram shows a user story for importing a new ontology. The flow is
+similar to that for importing a new dataset, but in this case no atomization
+is needed, as ontologies are presumed to be imported as RDF-serialized. 
+
+![Import new ontology](design/sequence-diagrams/Import%20new%20ontology.png)
+
+## Suggest mappings
+
+To support queries across datasets, a user must ensure mappings among terms in
+their working context's linked datasets and ontologies (unless the datasets are
+already linked through use of the same terms (URIs) for the same concepts -- the
+dream of Linked Data!). Imagine a simple context of one dataset and one
+ontology: a user has imported a new dataset they wish to share with the
+community, and has linked to a previously imported recommended ontology from the
+context where they imported their dataset. Now what?
+
+A user can request suggestions for mappings from the `maggtomic` system. First,
+the system should ensure that all inferences have been determined and persisted
+given the context's linked datasets and ontologies. Inferences are
+entity-attribute-value statements entailed by applying user-supplied ontologies
+to user-supplied data. In other words, *inferences* are mappings that are
+already unambiguously implied by what the user supplied, so it would be
+redundant to offer these mappings as *suggestions* to be confirmed for explicit
+inclusion by the user in their context's local ontology.
+
+The below diagram shows a user story for requesting suggestions for mappings
+to apply to a context's local ontology.
+
+![Suggest mappings](design/sequence-diagrams/Suggest%20mappings.png)
+
+## Apply mappings
+
+A user can curate a context to provide a data dictionary of terms and mappings
+that empower and ease the construction of readable queries across datasets.
+Mappings may be suggested by `maggtomic`, or they may be entered manually,
+in either case applied by a user.
+
+Because datasets and ontologies are both represented as RDF, a user
+can update a dataset to include ontology statements as part of the dataset
+itself, making it more readily interoperable. Hooray for Linked Data!
+
+The below diagram shows a user story for applying mappings to a context's
+local ontology. The validation step ensures consistency with the
+entailments of linked ontologies.
+
+![Apply mappings](design/sequence-diagrams/Apply%20mappings.png)
+
+## Create query
+
+The standard protocol and language for queries across RDF datasets is
+[SPARQL](https://www.w3.org/TR/2013/REC-sparql11-overview-20130321/), for which
+prefix mappings enable readable queries given URI terms. An alternative query
+interface/language may be helpful, in particular one that is based on data
+literals rather than strings, as is the case with Datalog's Clojure/EDN-based
+datalog. For `maggtomic`, the JSON-based query and aggregation languages of
+MongoDB may prove fruitful for adaptation.
+
+The below diagram shows a user story for saving and running a query across one
+or more datasets of a working context.
+
+
+![Create query](design/sequence-diagrams/Create%20query.png)

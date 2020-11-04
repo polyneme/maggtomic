@@ -1,0 +1,21 @@
+title Import new dataset
+
+actor User as U
+participant Frontend as F
+participant Backend as B
+participant Database as D
+
+U->F: enter context
+F->U: OK
+U->F: import new dataset
+F->U: OK, how?
+U->F: HTTP endpoint
+F->B: import via HTTP endpoint
+B->B: fetch
+opt
+B->B: atomize
+end
+B->D: persist
+D->B: OK
+B->F: summary
+F->U: show summary

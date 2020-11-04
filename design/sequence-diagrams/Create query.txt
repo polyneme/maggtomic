@@ -1,0 +1,20 @@
+title Create query
+
+actor User as U
+participant Frontend as F
+participant Backend as B
+participant Database as D
+
+U->F: enter context
+F->U: OK
+U->F: enter query
+F->U: OK
+U->F: save / run query
+F->B: save / run query
+B->D: fetch from context
+D->B: OK
+B->B: evaluate / plan query
+B->D: save / run query
+D->B: result
+B->F: result
+F->U: result
