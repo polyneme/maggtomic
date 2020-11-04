@@ -7,7 +7,7 @@ participant Database as D
 
 U->F: enter context
 F->U: OK
-U->F: enter local ontology
+U->F: enter local spec
 F->U: OK
 U->F: request suggestions
 F->B: get suggestions

@@ -7,7 +7,7 @@ participant Database as D
 
 U->F: enter context
 F->U: OK
-U->F: enter local ontology
+U->F: enter local spec
 F->U: OK
 U->F: apply mappings
 F->B: apply mappings
@@ -18,7 +18,7 @@ B->B: ensure inferences
 B->D: persist inferences
 end
 B->B: validate mappings
-B->D: update ontology
+B->D: update spec
 D->B: OK
 B->F: OK
 F->U: OK

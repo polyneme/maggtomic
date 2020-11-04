@@ -1,4 +1,4 @@
-title Import new ontology
+title Import new spec
 
 actor User as U
 participant Frontend as F
@@ -7,7 +7,7 @@ participant Database as D
 
 U->F: enter context
 F->U: OK
-U->F: import new ontology
+U->F: import new spec
 F->U: OK, how?
 U->F: HTTP endpoint
 F->B: import via HTTP endpoint

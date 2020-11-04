@@ -95,14 +95,17 @@ even if one knows the motivating use case is for agility in the context
 of a pilot system and thus one must
 [plan to throw one away; you will, anyhow.](https://www.tbray.org/ongoing/When/200x/2008/08/22/Build-One-to-Throw-Away)
 
-Finally, `maggtomic` aims to provide interoperability among data sources and sinks via translation between
-JSON-LD serializations (as JSON is a familiar format for stakeholders) and the RDF graphs corresponding
-to values of the `maggtomic` database as-of given times (and thus as a set of entity-attribute-value tuples
-for a given filtration of transactions). Again, Python tooling for this translation is crucial, and e.g.
-the [pyLD](https://github.com/digitalbazaar/pyld) library is a JSON-LD processor that supports necessary
-operations such as expansion+flattening -- context-annotated JSON-LD to RDF -- and
-framing(+compacting) -- RDF to context-annotated JSON-LD, which can leverage ontologies installed as
-facts-as-of-now themselves in the database.
+Finally, `maggtomic` aims to provide interoperability among data sources and
+sinks via translation between JSON-LD serializations (as JSON is a familiar
+format for stakeholders) and the RDF graphs corresponding to values of the
+`maggtomic` database as-of given times (and thus as a set of
+entity-attribute-value tuples for a given filtration of transactions). Again,
+Python tooling for this translation is crucial, and e.g. the
+[pyLD](https://github.com/digitalbazaar/pyld) library is a JSON-LD processor
+that supports necessary operations such as expansion+flattening --
+context-annotated JSON-LD to RDF -- and framing(+compacting) -- RDF to
+context-annotated JSON-LD, which can leverage specs, e.g. SHACL shape-graph
+schemas and ontologies, installed as facts-as-of-now themselves in the database.
 
 Dataflow may be handled via "builder" ETL processes as with the Materials Project's
 [maggma](https://github.com/materialsproject/maggma) system. Though currently out of scope for the near-term,
@@ -123,7 +126,7 @@ for the `maggtomic` user interface (UI). Each *place* has *affordances*, and the
 addition, here each place represents an entity, and the breadboard doubles as an
 entity relationship diagram (ERD) with relationship multiplicities labeled on
 the solid edges between entities. Examples: a *context* associates with zero or
-more ("0..n") *datasets*, a query* associates with one and only one ("1")
+more ("0..n") *datasets*, a *query* associates with one and only one ("1")
 *context*, etc.
 
 ![breadboard for user interface](design/breadboard-erd.png)
@@ -192,46 +195,61 @@ The below diagram shows a user story for importing a new dataset.
 
 ![Import new dataset](design/sequence-diagrams/Import%20new%20dataset.png)
 
-## Import new ontology
+## Import new spec
 
-An *ontology* is also an RDF graph, one intended to support inferences for
-and mapping among datasets in a context. Each context has a "local" ontology
+An *spec* (for "specification") is a power-up for datasets that increases their
+<a href="https://doi.org/10.1038/sdata.2016.18">FAIR</a>ness. A spec is also an
+RDF graph, and can represent something to be "applied" to a dataset, meaning
+additional facts are inferred from the dataset in this context -- that is, after
+verifying that the dataset doesn't contain facts that contradict with the spec.
+A spec of this kind is also called an *ontology*.
+
+A spec can also be something a dataset is validated against for conformance,
+e.g. a *schema* (called a *shape* in SHACL). A dataset needn't be conformant to
+all such linked specs in a context; rather, linking them can help the
+`maggtomic` system generate suggested mappings. Each context has a "local" spec
 where a user can use the namespace of the context to manage a controlled
-vocabulary (dictionary of terms) and mappings among terms.
+vocabulary (dictionary of terms) and mappings among terms. In this way, a user
+can ensure dataset conformance to specs of interest.
+
+The notion of "spec" here is inspired by that of
+[clojure.spec](https://clojure.org/about/spec): represented just like datasets,
+and more dynamic and flexible than a static system of types.
 
 A central design goal of `maggtomic` is to facilitate the mapping of imported
-datasets to shared ontologies. Thus, a user should be able to enter a context,
-import their dataset, import an ontology shared with them by a colleague,
-and establish mappings among terms. If another user has already imported
-an ontology of interest, that ontology may be linked from other contexts.
+datasets to shared specs. Thus, a user should be able to enter a context, import
+their dataset, import a spec shared with them by a colleague (for example, the
+[NMDC Schema](https://microbiomedata.github.io/nmdc-metadata/schema/)), and
+establish mappings among terms. If another user has already imported a spec of
+interest, that spec may be linked from other contexts.
 
-The below diagram shows a user story for importing a new ontology. The flow is
-similar to that for importing a new dataset, but in this case no atomization
-is needed, as ontologies are presumed to be imported as RDF-serialized. 
+The below diagram shows a user story for importing a new spec. The flow is
+similar to that for importing a new dataset, but in this case no atomization is
+needed, as specs are presumed to be imported as RDF-serialized.
 
-![Import new ontology](design/sequence-diagrams/Import%20new%20ontology.png)
+![Import new spec](design/sequence-diagrams/Import%20new%20spec.png)
 
 ## Suggest mappings
 
 To support queries across datasets, a user must ensure mappings among terms in
-their working context's linked datasets and ontologies (unless the datasets are
+their working context's linked datasets and spec (unless the datasets are
 already linked through use of the same terms (URIs) for the same concepts -- the
 dream of Linked Data!). Imagine a simple context of one dataset and one
-ontology: a user has imported a new dataset they wish to share with the
-community, and has linked to a previously imported recommended ontology from the
+spec: a user has imported a new dataset they wish to share with the
+community, and has linked to a previously imported recommended spec from the
 context where they imported their dataset. Now what?
 
 A user can request suggestions for mappings from the `maggtomic` system. First,
 the system should ensure that all inferences have been determined and persisted
-given the context's linked datasets and ontologies. Inferences are
-entity-attribute-value statements entailed by applying user-supplied ontologies
-to user-supplied data. In other words, *inferences* are mappings that are
+given the context's linked datasets and specs. Inferences are
+entity-attribute-value statements entailed by applying user-supplied ontology
+specs to user-supplied data. In other words, *inferences* are mappings that are
 already unambiguously implied by what the user supplied, so it would be
 redundant to offer these mappings as *suggestions* to be confirmed for explicit
-inclusion by the user in their context's local ontology.
+inclusion by the user in their context's local spec.
 
 The below diagram shows a user story for requesting suggestions for mappings
-to apply to a context's local ontology.
+to apply to a context's local spec.
 
 ![Suggest mappings](design/sequence-diagrams/Suggest%20mappings.png)
 
@@ -242,13 +260,13 @@ that empower and ease the construction of readable queries across datasets.
 Mappings may be suggested by `maggtomic`, or they may be entered manually,
 in either case applied by a user.
 
-Because datasets and ontologies are both represented as RDF, a user
-can update a dataset to include ontology statements as part of the dataset
+Because datasets and specs are both represented as RDF, a user
+can update a dataset to include spec statements as part of the dataset
 itself, making it more readily interoperable. Hooray for Linked Data!
 
 The below diagram shows a user story for applying mappings to a context's
-local ontology. The validation step ensures consistency with the
-entailments of linked ontologies.
+local spec. The validation step ensures consistency with the
+entailments of linked specs.
 
 ![Apply mappings](design/sequence-diagrams/Apply%20mappings.png)
 
