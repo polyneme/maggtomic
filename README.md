@@ -263,8 +263,24 @@ datalog. [Eve](http://docs.witheve.com/v0.3/syntaxreference/) syntax is another
 datalog variant that may be worth investigating. For `maggtomic`, the JSON-based
 query and aggregation languages of MongoDB may prove fruitful for adaptation.
 
+A query is labeled with a natural-language question, to facilitate user
+navigation and search for relevant queries that lead the user to relevant
+contexts and datasets.
+
 The below diagram shows a user story for saving and running a query across one
 or more datasets of a working context.
 
 
 ![Create query](design/sequence-diagrams/Create%20query.png)
+
+## Create insight
+
+An insight is a lightweight annotation for a context that communicates some
+result and its significance. It is a "post" by a user, with text and perhaps
+included visualizations in the form of e.g. PNG images. Ideally, an insight
+links to one or more specific queries of the context that support the insight.
+
+No sequence diagram is shown yet for creating an insight because this is not
+considered a core use case for a minimum viable product (MVP) demo of
+`maggtomic`. Thus, it is not crucial at this time to sketch out a checklist for
+a spike that demonstrates this feature.
