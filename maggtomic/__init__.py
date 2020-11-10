@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 from typing import List
 
@@ -89,13 +90,7 @@ def create_collection(name, drop_guard=True):
         },
     )
     _add_raw([(GENERATED_AT_TIME, OID_URIREF, f'{PREFIX["prov"]}generatedAtTime')])
-    oids_for(
-        [
-            f'{PREFIX["rdf"]}resource',
-            f'{PREFIX["vaem"]}id',
-            f'{PREFIX["qudt"]}value',
-        ]
-    )
+    oids_for(prefix_expand(["rdf:resource", "vaem:id", "qudt:value"]))
     collection.create_indexes(INDEX_MODELS)
     return collection
 
@@ -113,6 +108,7 @@ _oids_cache = {}
 
 
 def oids_for(resources: List[str]) -> List[ObjectId]:
+    check_uris(resources)
     docs = [{E: _oids_cache[r], V: r} for r in set(resources) & set(_oids_cache)]
     missing = list(set(resources) - {d[V] for d in docs})
     if missing:  # not in cache? fetch from database.
@@ -127,6 +123,30 @@ def oids_for(resources: List[str]) -> List[ObjectId]:
     return [d[E] for d in docs]
 
 
+def prefix_expand(resources: List[str], use_prefixes=None) -> List[str]:
+    prefix = PREFIX.copy()
+    if use_prefixes is not None:
+        prefix.update(use_prefixes)
+    out = []
+    for r in resources:
+        components = r.split(":", 1)
+        if len(components) == 2 and not components[1].startswith("/"):
+            pfx, local_name = components
+            out.append(f'{prefix.get(pfx, pfx+":")}{local_name}')
+        else:
+            out.append(r)
+    return out
+
+
+uri_beginning_pattern = re.compile(r"[a-z]\w*?://.")
+
+
+def check_uris(resources: List[str]) -> List[str]:
+    if not all(re.match(uri_beginning_pattern, r) for r in resources):
+        raise ValueError("Some resources are not URIs")
+    return resources
+
+
 # TODO basic CRUD:
 #   - arrange for literals (i.e., non-objectId values such as numbers and strings)
 #     to be values only for a datom with attribute `qudt:value`.
@@ -137,6 +157,7 @@ def oids_for(resources: List[str]) -> List[ObjectId]:
 #     to associate with the qudt:value Literal of a structured value.
 #  - "updating" and "deleting" needs to transact retraction statements.
 #  - use crockford base32 for user-shareable entity IDs stored as 64-bit integers.
+#  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 
 
 if __name__ == "__main__":
