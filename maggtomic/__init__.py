@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Tuple, Any
 
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -89,15 +89,23 @@ def create_collection(name, drop_guard=True):
             }
         },
     )
-    _add_raw([(GENERATED_AT_TIME, OID_URIREF, f'{PREFIX["prov"]}generatedAtTime')])
-    oids_for(prefix_expand(["rdf:resource", "vaem:id", "qudt:value"]))
+    _add_raw(
+        [
+            (OID_URIREF, OID_URIREF, prefix_expand(["rdf:resource"])[0]),
+            (GENERATED_AT_TIME, OID_URIREF, prefix_expand(["prov:generatedAtTime"])[0]),
+        ]
+    )
+    oids_for(prefix_expand(["vaem:id", "qudt:value"]))
     collection.create_indexes(INDEX_MODELS)
     return collection
 
 
-def _add_raw(statements):
+RawStatement = Tuple[ObjectId, ObjectId, Any]
+
+
+def _add_raw(raw_statements: List[RawStatement]):
     t = ObjectId()
-    docs = [{E: e, A: a, V: v, T: t, O: True} for (e, a, v) in statements]
+    docs = [{E: e, A: a, V: v, T: t, O: True} for (e, a, v) in raw_statements]
     docs.append({E: t, A: GENERATED_AT_TIME, V: t.generation_time, T: t, O: True})
     return db.main.insert_many(
         docs
@@ -123,18 +131,21 @@ def oids_for(resources: List[str]) -> List[ObjectId]:
     return [d[E] for d in docs]
 
 
-def prefix_expand(resources: List[str], use_prefixes=None) -> List[str]:
+def prefix_expand(items: list, use_prefixes=None) -> list:
     prefix = PREFIX.copy()
     if use_prefixes is not None:
         prefix.update(use_prefixes)
     out = []
-    for r in resources:
-        components = r.split(":", 1)
-        if len(components) == 2 and not components[1].startswith("/"):
-            pfx, local_name = components
-            out.append(f'{prefix.get(pfx, pfx+":")}{local_name}')
+    for item in items:
+        if isinstance(item, str):
+            components = item.split(":", 1)
+            if len(components) == 2 and not components[1].startswith("/"):
+                pfx, local_name = components
+                out.append(f'{prefix.get(pfx, pfx+":")}{local_name}')
+            else:
+                out.append(item)
         else:
-            out.append(r)
+            out.append(item)
     return out
 
 
@@ -147,16 +158,50 @@ def check_uris(resources: List[str]) -> List[str]:
     return resources
 
 
+Statement = Tuple[uri_beginning_pattern, uri_beginning_pattern, Any]
+
+
+def _compile_to_raw(statement: Statement) -> RawStatement:
+    entity, attribute, value = statement
+    resources = {c for c in statement if re.match(uri_beginning_pattern, c)}
+    if entity not in resources or attribute not in resources:
+        raise ValueError(
+            "Entity and Attribute must both be resources, i.e. (prefixed) URIs."
+        )
+    if value not in resources and attribute not in prefix_expand(
+        ["vaem:id", "qudt:value"]
+    ):
+        raise ValueError(
+            "Value must be a resource, i.e. a (prefixed) URI, unless attribute is one of "
+            "{vaem:id, qudt:value}."
+        )
+    rmap = dict(zip(resources, oids_for(list(resources))))
+    return rmap[entity], rmap[attribute], rmap.get(value, value)
+
+
+Fact = Tuple[str, str, Any]
+
+
+def add(fact: Fact):
+    statement = prefix_expand(fact)
+    # TODO If value isn't URI, first generate URI for new structured value (using crockford base32 ID for
+    #   last part of URI), then _compile_to_raw both
+    #   (e_user, a_user, new_uri) and (new_uri, qudt:value, v_user) statements,
+    #   and finally _add_raw both together.
+    pass
+
+
 # TODO basic CRUD:
-#   - arrange for literals (i.e., non-objectId values such as numbers and strings)
-#     to be values only for a datom with attribute `qudt:value`.
-#     Thus, all values are structured values (https://www.w3.org/TR/rdf-schema/#ch_value).
+#  - use crockford base32 for user-shareable entity IDs stored as 64-bit integers.
+#  - arrange for literals (i.e., non-objectId values such as numbers and strings)
+#     to be values only for a datom with attributes in
+#     {objectId(r) for r in {"vaem:id", "qudt:value"}}.
+#     Thus, most values are structured values (https://www.w3.org/TR/rdf-schema/#ch_value).
 #     Use of qudt:value rather than e.g. rdf:value supports any qudt:Quantifiable structured value,
 #     i.e. inclusion of qudt:unit, qudt:standardUncertainty,
 #     qudt:dataType (qudt:basis, qudt:cardinality, qudt:orderedType, qudt:pythonName, etc.), etc.
 #     to associate with the qudt:value Literal of a structured value.
 #  - "updating" and "deleting" needs to transact retraction statements.
-#  - use crockford base32 for user-shareable entity IDs stored as 64-bit integers.
 #  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 
 
