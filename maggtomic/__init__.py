@@ -1,5 +1,8 @@
 import os
+from datetime import datetime, timezone
+from typing import List
 
+from bson import ObjectId
 from dotenv import load_dotenv
 from pymongo import (
     MongoClient,
@@ -16,6 +19,7 @@ MONGO_DBNAME = os.getenv("MONGO_DBNAME")
 client = MongoClient(MONGO_CONNECTION_URI)
 db = client[MONGO_DBNAME]
 
+# fields allowed in underlying MongoDB collection
 E, A, V, T, O = "e", "a", "v", "t", "o"
 
 INDEX_MODELS = [
@@ -36,6 +40,21 @@ INDEX_MODELS = [
     IndexModel([(T, DESC)], name="T (history)"),
 ]
 
+# Stable ObjectId to map an arbitrary ObjectId to an RDF URI Reference,
+# i.e. `OID_URIREF rdfs:domain ObjectId ; rdfs:range rdfs:Resource .`,
+# an internal bridge from MongoDB-land to RDF-land.
+OID_URIREF = ObjectId.from_datetime(datetime(1970, 1, 1, 0, tzinfo=timezone.utc))
+
+# Stable ObjectId to map to <http://www.w3.org/ns/prov#generatedAtTime>, for transaction wall-times.
+GENERATED_AT_TIME = ObjectId.from_datetime(datetime(1970, 1, 1, 1, tzinfo=timezone.utc))
+
+PREFIX = {
+    "qudt": "http://qudt.org/schema/qudt#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "vaem": "http://www.linkedmodel.org/schema/vaem#",
+    "prov": "http://www.w3.org/ns/prov#",
+}
+
 
 def create_collection(name, drop_guard=True):
     if drop_guard and name in db.list_collection_names():
@@ -52,8 +71,9 @@ def create_collection(name, drop_guard=True):
         validator={
             "$jsonSchema": {
                 "bsonType": "object",
-                "required": ["e", "a", "v", "t", "o"],
+                "required": ["e", "a", "v", "t", "o", "_id"],
                 "properties": {
+                    "_id": {"bsonType": "objectId"},
                     "e": {"bsonType": "objectId", "title": "entity"},
                     "a": {"bsonType": "objectId", "title": "attribute"},
                     "v": {"title": "value"},
@@ -68,12 +88,46 @@ def create_collection(name, drop_guard=True):
             }
         },
     )
+    _add_raw([(GENERATED_AT_TIME, OID_URIREF, f'{PREFIX["prov"]}generatedAtTime')])
+    oids_for(
+        [
+            f'{PREFIX["rdf"]}resource',
+            f'{PREFIX["vaem"]}id',
+            f'{PREFIX["qudt"]}value',
+        ]
+    )
     collection.create_indexes(INDEX_MODELS)
     return collection
 
 
+def _add_raw(statements):
+    t = ObjectId()
+    docs = [{E: e, A: a, V: v, T: t, O: True} for (e, a, v) in statements]
+    docs.append({E: t, A: GENERATED_AT_TIME, V: t.generation_time, T: t, O: True})
+    return db.main.insert_many(
+        docs
+    ).inserted_ids  # raises InvalidOperation if write is unacknowledged
+
+
+_oids_cache = {}
+
+
+def oids_for(resources: List[str]) -> List[ObjectId]:
+    docs = [{E: _oids_cache[r], V: r} for r in set(resources) & set(_oids_cache)]
+    missing = list(set(resources) - {d[V] for d in docs})
+    if missing:  # not in cache? fetch from database.
+        docs.extend(list(db.main.find({A: OID_URIREF, V: {"$in": missing}}, [E, V])))
+        missing = list(set(resources) - {d[V] for d in docs})
+        if missing:  # not in database? add to database.
+            new_oids = {r: ObjectId() for r in missing}
+            _add_raw([(oid, OID_URIREF, r) for r, oid in new_oids.items()])
+            docs.extend([{E: oid, V: r} for r, oid in new_oids.items()])
+    for d in docs:
+        _oids_cache[d[V]] = d[E]
+    return [d[E] for d in docs]
+
+
 # TODO basic CRUD:
-#   - create or find objectId for each URI.
 #   - arrange for literals (i.e., non-objectId values such as numbers and strings)
 #     to be values only for a datom with attribute `qudt:value`.
 #     Thus, all values are structured values (https://www.w3.org/TR/rdf-schema/#ch_value).
