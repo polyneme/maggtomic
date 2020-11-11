@@ -111,10 +111,15 @@ context-annotated JSON-LD to RDF -- and framing(+compacting) -- RDF to
 context-annotated JSON-LD, which can leverage specs, e.g. SHACL shape-graph
 schemas and ontologies, installed as facts-as-of-now themselves in the database.
 
-Dataflow may be handled via "builder" ETL processes as with the Materials Project's
-[maggma](https://github.com/materialsproject/maggma) system. Though currently out of scope for the near-term,
-it may be possible to construct a [timely dataflow](https://timelydataflow.github.io/timely-dataflow/) system
-to support adequately-performant interactive queries of the knowledge graph embodied by a `maggtomic` database.
+Dataflow may be handled via "builder" ETL processes as with the Materials
+Project's [maggma](https://github.com/materialsproject/maggma) system. Though
+currently out of scope for the near-term, it may be possible to construct a
+[timely dataflow](https://timelydataflow.github.io/timely-dataflow/) system to
+support adequately-performant interactive queries of the knowledge graph
+embodied by a `maggtomic` database. The [tuple space
+model](https://software-carpentry.org/blog/2011/03/tuple-spaces-or-good-ideas-dont-always-win.html)
+(e.g. [Linda](https://www.inf.ed.ac.uk/teaching/courses/ppls/linda.pdf)) of
+parallel programming may also be fruitful here.
 
 For Web API support for metadata submission and search/retrieval,
 `maggtomic` aims to include a [FastAPI](https://fastapi.tiangolo.com/) server module. For browser-based
