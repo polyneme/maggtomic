@@ -4,6 +4,10 @@
 #
 #    pip-compile --generate-hashes --output-file=requirements/main.txt requirements/main.in
 #
+base32-lib==1.0.2 \
+    --hash=sha256:09663df621bbc454079a54c92fa25d3bc33ea4a191053a09dd1e05ea4c0fe47c \
+    --hash=sha256:f3cbc1c4b3df7af844c9b7ffc1638a688423db2b1e51082b2c014b3959b756ae \
+    # via -r requirements/main.in
 pydash==4.9.0 \
     --hash=sha256:44f7217669511901bf234628231a8d8fccd89a53c23b54c35759ee0838a67ba7 \
     --hash=sha256:a743212a586f92980ee093fdec4a984cb97d38fe6d5dadd3c4eb1de57bc5fb4a \
@@ -67,3 +71,7 @@ python-dotenv==0.15.0 \
     --hash=sha256:0c8d1b80d1a1e91717ea7d526178e3882732420b03f08afea0406db6402e220e \
     --hash=sha256:587825ed60b1711daea4832cf37524dfd404325b7db5e25ebe88c495c9f807a0 \
     # via -r requirements/main.in
+six==1.15.0 \
+    --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
+    --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced \
+    # via base32-lib
