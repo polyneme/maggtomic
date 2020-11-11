@@ -1,10 +1,12 @@
 import os
 import re
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import List, Tuple, Any
 
 from bson import ObjectId
 from dotenv import load_dotenv
+from pydash import py_
 from pymongo import (
     MongoClient,
     ASCENDING as ASC,
@@ -49,11 +51,35 @@ OID_URIREF = ObjectId.from_datetime(datetime(1970, 1, 1, 0, tzinfo=timezone.utc)
 # Stable ObjectId to map to <http://www.w3.org/ns/prov#generatedAtTime>, for transaction wall-times.
 GENERATED_AT_TIME = ObjectId.from_datetime(datetime(1970, 1, 1, 1, tzinfo=timezone.utc))
 
-PREFIX = {
+PREFIXES = {
     "qudt": "http://qudt.org/schema/qudt#",
     "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
     "vaem": "http://www.linkedmodel.org/schema/vaem#",
     "prov": "http://www.w3.org/ns/prov#",
+}
+
+
+def prefix_expand(items: Iterable, use_prefixes=None) -> list:
+    prefix = PREFIXES.copy()
+    if use_prefixes is not None:
+        prefix.update(use_prefixes)
+    out = []
+    for item in items:
+        if isinstance(item, str):
+            components = item.split(":", 1)
+            if len(components) == 2 and not components[1].startswith("/"):
+                pfx, local_name = components
+                out.append(f'{prefix.get(pfx, pfx+":")}{local_name}')
+            else:
+                out.append(item)
+        else:
+            out.append(item)
+    return out
+
+
+CORE_CURIS = ("qudt:value", "rdf:resource", "vaem:id", "prov:generatedAtTime")
+CORE_ATTRIBUTES = {
+    curi: expanded for curi, expanded in zip(CORE_CURIS, prefix_expand(CORE_CURIS))
 }
 
 
@@ -91,11 +117,11 @@ def create_collection(name, drop_guard=True):
     )
     _add_raw(
         [
-            (OID_URIREF, OID_URIREF, prefix_expand(["rdf:resource"])[0]),
-            (GENERATED_AT_TIME, OID_URIREF, prefix_expand(["prov:generatedAtTime"])[0]),
+            (OID_URIREF, OID_URIREF, CORE_ATTRIBUTES["rdf:resource"]),
+            (GENERATED_AT_TIME, OID_URIREF, CORE_ATTRIBUTES["prov:generatedAtTime"]),
         ]
     )
-    oids_for(prefix_expand(["vaem:id", "qudt:value"]))
+    oids_for(py_.properties("vaem:id", "qudt:value")(CORE_ATTRIBUTES))
     collection.create_indexes(INDEX_MODELS)
     return collection
 
@@ -131,24 +157,6 @@ def oids_for(resources: List[str]) -> List[ObjectId]:
     return [d[E] for d in docs]
 
 
-def prefix_expand(items: list, use_prefixes=None) -> list:
-    prefix = PREFIX.copy()
-    if use_prefixes is not None:
-        prefix.update(use_prefixes)
-    out = []
-    for item in items:
-        if isinstance(item, str):
-            components = item.split(":", 1)
-            if len(components) == 2 and not components[1].startswith("/"):
-                pfx, local_name = components
-                out.append(f'{prefix.get(pfx, pfx+":")}{local_name}')
-            else:
-                out.append(item)
-        else:
-            out.append(item)
-    return out
-
-
 uri_beginning_pattern = re.compile(r"[a-z]\w*?://.")
 
 
@@ -158,7 +166,7 @@ def check_uris(resources: List[str]) -> List[str]:
     return resources
 
 
-Statement = Tuple[uri_beginning_pattern, uri_beginning_pattern, Any]
+Statement = Tuple[str, str, Any]
 
 
 def _compile_to_raw(statement: Statement) -> RawStatement:
@@ -168,9 +176,9 @@ def _compile_to_raw(statement: Statement) -> RawStatement:
         raise ValueError(
             "Entity and Attribute must both be resources, i.e. (prefixed) URIs."
         )
-    if value not in resources and attribute not in prefix_expand(
-        ["vaem:id", "qudt:value"]
-    ):
+    if value not in resources and attribute not in py_.properties(
+        "vaem:id", "qudt:value"
+    )(CORE_ATTRIBUTES):
         raise ValueError(
             "Value must be a resource, i.e. a (prefixed) URI, unless attribute is one of "
             "{vaem:id, qudt:value}."
@@ -201,6 +209,9 @@ def add(fact: Fact):
 #     i.e. inclusion of qudt:unit, qudt:standardUncertainty,
 #     qudt:dataType (qudt:basis, qudt:cardinality, qudt:orderedType, qudt:pythonName, etc.), etc.
 #     to associate with the qudt:value Literal of a structured value.
+#  - default to zstd compression
+#  - add ref to Linda / tuple spaces to README
+#  - register package on pypi.org
 #  - "updating" and "deleting" needs to transact retraction statements.
 #  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 
