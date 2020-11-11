@@ -255,8 +255,10 @@ def add(statement: UserStatement, use_prefixes=None):
 
 
 # TODO basic CRUD:
-#  - "updating" and "deleting" needs to transact retraction statements.
+#  - basic query. want data-structure orientation of MongoDB syntax, with support for datalog-esque pattern matching
+#    (also data-structure-oriented).
 #  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
+#  - "updating" and "deleting" needs to transact retraction statements.
 
 
 if __name__ == "__main__":

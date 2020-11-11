@@ -15,6 +15,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[
+        "Development Status :: 1 - Planning",
+        "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
     ],

@@ -5,6 +5,11 @@ The primary near-term use case is support of metadata submission, processing, an
 [National Microbiome Data Collaborative (NMDC)](https://microbiomedata.org/) pilot project. A priority of
 this project is the cultivation of an open (and open-source-powered) data ecosystem.
 
+# Development Status
+
+The development status is currently a mix of Planning and Pre-Alpha (as per
+https://pypi.org/classifiers/).
+
 # Assumptions and Design Considerations
 
 A priority for `maggtomic` is agility. The system must be extensible, with little impedance, to ongoing
