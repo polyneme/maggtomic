@@ -143,6 +143,8 @@ def create_collection(name, drop_guard=True):
                 "additionalProperties": False,
             }
         },
+        # higher compression than default "snappy", lower CPU usage than "zlib".
+        storageEngine={"wiredTiger": {"configString": "block_compressor=zstd"}},
     )
     _add_raw(
         [
@@ -156,6 +158,7 @@ def create_collection(name, drop_guard=True):
             (OID_QUDT_VALUE, OID_URIREF, CORE_ATTRIBUTES["qudt:value"]),
         ]
     )
+    # indexes leverage default prefix compression
     collection.create_indexes(INDEX_MODELS)
     return collection
 
@@ -252,7 +255,6 @@ def add(statement: UserStatement, use_prefixes=None):
 
 
 # TODO basic CRUD:
-#  - default to zstd compression
 #  - add ref to Linda / tuple spaces to README
 #  - register package on pypi.org
 #  - "updating" and "deleting" needs to transact retraction statements.
