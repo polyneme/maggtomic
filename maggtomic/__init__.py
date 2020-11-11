@@ -255,7 +255,6 @@ def add(statement: UserStatement, use_prefixes=None):
 
 
 # TODO basic CRUD:
-#  - register package on pypi.org
 #  - "updating" and "deleting" needs to transact retraction statements.
 #  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 
