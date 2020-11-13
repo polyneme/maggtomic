@@ -281,15 +281,28 @@ def transact(rso_sequence: List[List[RawStatementOperation]]):
 
 
 def query(select=None, where=None, params=None, args=None) -> list:
-    """
+    """Query data sources.
+
+    The query language for maggtomic, code-named "mongortholog", can be imagined as an unholy reverse-orthology (i.e., a
+    common ancestor) of the query forms of MongoDB and Datalog.
 
     :param select: specifies what is to be returned, using names introduced in `where`.
     :param where: limits what is returned. Introduces variable names and can use `params`.
     :param params: optional names mapping to the provided `args`.
     :param args: optional data sources for the query
-    :return:
+    :return: a list of results
     """
-    pass
+    if params is None:
+        params = []
+    if args is None:
+        args = []
+    if len(args) != len(params):
+        raise ValueError(
+            "Number of args supplied does not match number of params supplied"
+        )
+    param_val = {"$": db["main"]}
+    param_val.update({p: v for p, v in zip(params, args)})
+    # TODO if select is None, return all bindings from `where` group pattern.
 
 
 # TODO basic CRUD:
