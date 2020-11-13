@@ -164,21 +164,26 @@ def create_collection(name, drop_guard=True):
 
 
 RawStatement = Tuple[ObjectId, ObjectId, Any]
+RawStatementOperation = Tuple[ObjectId, ObjectId, Any, bool]
 
 
-def _add_raw(raw_statements: List[RawStatement]):
+def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
     t = ObjectId()
-    docs = [{E: e, A: a, V: v, T: t, O: True} for (e, a, v) in raw_statements]
+    docs = [{E: e, A: a, V: v, T: t, O: o} for (e, a, v, o) in raw_statement_operations]
     docs.append({E: t, A: OID_GENERATED_AT_TIME, V: t.generation_time, T: t, O: True})
     return db.main.insert_many(
         docs
     ).inserted_ids  # raises InvalidOperation if write is unacknowledged
 
 
+def _add_raw(raw_statements: List[RawStatement]):
+    _transact_raw([(e, a, v, True) for (e, a, v) in raw_statements])
+
+
 _oids_cache = {}
 
 
-def oids_for(resources: List[str]) -> List[ObjectId]:
+def _oids_for(resources: List[str]) -> List[ObjectId]:
     check_uris(resources)
     docs = [{E: _oids_cache[r], V: r} for r in set(resources) & set(_oids_cache)]
     missing = list(set(resources) - {d[V] for d in docs})
@@ -225,7 +230,7 @@ def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
             "Value must be a non-literal, e.g. a (compact) URI, unless attribute is one of "
             f"{{vaem:id, qudt:value}}. Input statement: {statement}."
         )
-    rmap = dict(zip(resources, oids_for(list(resources))))
+    rmap = dict(zip(resources, _oids_for(list(resources))))
     return (
         rmap.get(entity, entity),
         rmap.get(attribute, attribute),
@@ -236,9 +241,11 @@ def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
 UserStatement = Tuple[str, str, Any]
 
 
-def add(statement: UserStatement, use_prefixes=None):
+def _ensure_structured_literal(
+    statement: UserStatement, use_prefixes=None
+) -> List[ExpandedStatement]:
     e_user, a_user, v_user = prefix_expand(statement, use_prefixes=use_prefixes)
-    v_user_is_uri = bool(re.match(uri_beginning_pattern, v_user))
+    v_user_is_uri = isinstance(v_user, str) and re.match(uri_beginning_pattern, v_user)
     if not v_user_is_uri and a_user not in LITERAL_VALUED_ATTRIBUTES:
         new_oid = ObjectId()
         v_eid = generate_id()
@@ -250,8 +257,27 @@ def add(statement: UserStatement, use_prefixes=None):
         ]
     else:
         expanded_statements = [(e_user, a_user, v_user)]
+    return expanded_statements
+
+
+def add(statement: UserStatement, use_prefixes=None) -> List[RawStatementOperation]:
+    expanded_statements = _ensure_structured_literal(
+        statement, use_prefixes=use_prefixes
+    )
     raw_statements = [_compile_to_raw(s) for s in expanded_statements]
-    _add_raw(raw_statements)
+    return [(e, a, v, True) for (e, a, v) in raw_statements]
+
+
+def retract(statement: UserStatement, use_prefixes=None) -> List[RawStatementOperation]:
+    expanded_statements = _ensure_structured_literal(
+        statement, use_prefixes=use_prefixes
+    )
+    raw_statements = [_compile_to_raw(s) for s in expanded_statements]
+    return [(e, a, v, False) for (e, a, v) in raw_statements]
+
+
+def transact(rso_sequence: List[List[RawStatementOperation]]):
+    _transact_raw(py_.flatten(rso_sequence))
 
 
 # TODO basic CRUD:
@@ -263,7 +289,13 @@ def add(statement: UserStatement, use_prefixes=None):
 
 if __name__ == "__main__":
     maincoll = create_collection("main", drop_guard=False)
-    add(
-        ("vaem:id", "myns:comment", "A shareable ID"),
-        use_prefixes={"myns": "scheme://host/ns/mine#"},
-    )
+    additional_prefixes = {"myns": "s://host/ns/myns#"}
+    statements = [
+        (
+            f"myns:key{n:02}",
+            "prov:generatedAtTime",
+            datetime(2020, 11, 1, tzinfo=timezone.utc),
+        )
+        for n in range(20)
+    ]
+    transact([add(s, use_prefixes=additional_prefixes) for s in statements])
