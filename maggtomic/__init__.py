@@ -280,6 +280,18 @@ def transact(rso_sequence: List[List[RawStatementOperation]]):
     _transact_raw(py_.flatten(rso_sequence))
 
 
+def query(select=None, where=None, params=None, args=None) -> list:
+    """
+
+    :param select: specifies what is to be returned, using names introduced in `where`.
+    :param where: limits what is returned. Introduces variable names and can use `params`.
+    :param params: optional names mapping to the provided `args`.
+    :param args: optional data sources for the query
+    :return:
+    """
+    pass
+
+
 # TODO basic CRUD:
 #  - basic query. want data-structure orientation of MongoDB syntax, with support for datalog-esque pattern matching
 #    (also data-structure-oriented).
@@ -299,3 +311,16 @@ if __name__ == "__main__":
         for n in range(20)
     ]
     transact([add(s, use_prefixes=additional_prefixes) for s in statements])
+    q = {
+        "select": ["?key", "?dt"],
+        "where": [
+            ["?key", "prov:generatedAtTime", "?dt"],
+            {
+                "?dt": {
+                    "$gt": datetime(2020, 10, 31, tzinfo=timezone.utc),
+                    "$lt": datetime(2020, 11, 2, tzinfo=timezone.utc),
+                }
+            },
+        ],
+    }
+    query(**q)
