@@ -301,8 +301,6 @@ def as_of(db: Database, t: Union[ObjectId, datetime]):
 
 
 # TODO basic CRUD:
-#  - basic query. want data-structure orientation of MongoDB syntax, with support for datalog-esque pattern matching
-#    (also data-structure-oriented).
 #  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 #  - "updating" and "deleting" needs to transact retraction statements.
 
