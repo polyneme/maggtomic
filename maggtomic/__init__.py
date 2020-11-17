@@ -14,6 +14,8 @@ from pymongo import (
     IndexModel,
     WriteConcern,
 )
+from pymongo.database import Database
+from pymongo.errors import WriteError
 
 from maggtomic.util import generate_id, decode_id
 
@@ -171,9 +173,12 @@ def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
     t = ObjectId()
     docs = [{E: e, A: a, V: v, T: t, O: o} for (e, a, v, o) in raw_statement_operations]
     docs.append({E: t, A: OID_GENERATED_AT_TIME, V: t.generation_time, T: t, O: True})
-    return db.main.insert_many(
+    inserted_ids = db.main.insert_many(
         docs
     ).inserted_ids  # raises InvalidOperation if write is unacknowledged
+    if len(inserted_ids) != len(docs):
+        raise WriteError("not all documents inserted for transaction")
+    return inserted_ids
 
 
 def _add_raw(raw_statements: List[RawStatement]):
@@ -196,7 +201,7 @@ def _oids_for(resources: List[str]) -> List[ObjectId]:
             docs.extend([{E: oid, V: r} for r, oid in new_oids.items()])
     for d in docs:
         _oids_cache[d[V]] = d[E]
-    return [d[E] for d in docs]
+    return {d[V]: d[E] for d in docs}
 
 
 uri_beginning_pattern = re.compile(r"[a-z]\w*?://.")
@@ -230,7 +235,7 @@ def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
             "Value must be a non-literal, e.g. a (compact) URI, unless attribute is one of "
             f"{{vaem:id, qudt:value}}. Input statement: {statement}."
         )
-    rmap = dict(zip(resources, _oids_for(list(resources))))
+    rmap = _oids_for(resources)
     return (
         rmap.get(entity, entity),
         rmap.get(attribute, attribute),
@@ -280,29 +285,19 @@ def transact(rso_sequence: List[List[RawStatementOperation]]):
     _transact_raw(py_.flatten(rso_sequence))
 
 
-def query(select=None, where=None, params=None, args=None) -> list:
-    """Query data sources.
+def as_of(db: Database, t: Union[ObjectId, datetime]):
+    if isinstance(t, datetime):
+        oid = db.main.find_one(
+            {A: OID_GENERATED_AT_TIME, V: {"$lte": t}}, [E], sort=[(T, DESC)]
+        )[E]
+    else:
+        oid = t
 
-    The query language for maggtomic, code-named "mongortholog", can be imagined as an unholy reverse-orthology (i.e., a
-    common ancestor) of the query forms of MongoDB and Datalog.
+    def docs_for(filter_):
+        py_.set_(filter_, [T, "$lte"], oid)
+        return db.main.find(filter_)
 
-    :param select: specifies what is to be returned, using names introduced in `where`.
-    :param where: limits what is returned. Introduces variable names and can use `params`.
-    :param params: optional names mapping to the provided `args`.
-    :param args: optional data sources for the query
-    :return: a list of results
-    """
-    if params is None:
-        params = []
-    if args is None:
-        args = []
-    if len(args) != len(params):
-        raise ValueError(
-            "Number of args supplied does not match number of params supplied"
-        )
-    param_val = {"$": db["main"]}
-    param_val.update({p: v for p, v in zip(params, args)})
-    # TODO if select is None, return all bindings from `where` group pattern.
+    return docs_for
 
 
 # TODO basic CRUD:
@@ -313,9 +308,11 @@ def query(select=None, where=None, params=None, args=None) -> list:
 
 
 if __name__ == "__main__":
+    from maggtomic.query import query
+
     maincoll = create_collection("main", drop_guard=False)
     additional_prefixes = {"myns": "s://host/ns/myns#"}
-    statements = [
+    key_time_statements = [
         (
             f"myns:key{n:02}",
             "prov:generatedAtTime",
@@ -323,17 +320,24 @@ if __name__ == "__main__":
         )
         for n in range(20)
     ]
-    transact([add(s, use_prefixes=additional_prefixes) for s in statements])
-    q = {
+    transact([add(s, use_prefixes=additional_prefixes) for s in key_time_statements])
+    query_spec = {
         "select": ["?key", "?dt"],
         "where": [
-            ["?key", "prov:generatedAtTime", "?dt"],
-            {
-                "?dt": {
-                    "$gt": datetime(2020, 10, 31, tzinfo=timezone.utc),
-                    "$lt": datetime(2020, 11, 2, tzinfo=timezone.utc),
-                }
-            },
+            ["?key", "prov:generatedAtTime", "?sv"],
+            [
+                "?sv",
+                "qudt:value",
+                {
+                    "?dt": {
+                        "$gt": datetime(2020, 10, 31, tzinfo=timezone.utc),
+                        "$lt": datetime(2020, 11, 2, tzinfo=timezone.utc),
+                    }
+                },
+            ],
         ],
     }
-    query(**q)
+    db_as_of_now = as_of(db, datetime.now(tz=timezone.utc))
+    results = query(query_spec, db_filter=db_as_of_now)
+    assert len(results) == len(key_time_statements)
+    assert all(k.startswith("s://host/ns/myns#key") for k in py_.pluck(results, "?key"))
