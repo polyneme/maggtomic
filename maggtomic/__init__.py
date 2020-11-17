@@ -113,12 +113,15 @@ LITERAL_VALUED_ATTRIBUTES = frozenset(
     py_.properties("vaem:id", "qudt:value")(CORE_ATTRIBUTES)
 )
 
+_oids_cache = {}
+
 
 def create_collection(name, drop_guard=True):
     if drop_guard and name in db.list_collection_names():
         raise ValueError(f"collection `{name}` already exists in db.")
     else:
         db.drop_collection(name)
+        _oids_cache.clear()
     collection = db.create_collection(
         name,
         write_concern=WriteConcern(w=1, j=True),
@@ -183,9 +186,6 @@ def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
 
 def _add_raw(raw_statements: List[RawStatement]):
     _transact_raw([(e, a, v, True) for (e, a, v) in raw_statements])
-
-
-_oids_cache = {}
 
 
 def _oids_for(resources: List[str]) -> List[ObjectId]:
