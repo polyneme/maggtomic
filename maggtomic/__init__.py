@@ -211,11 +211,11 @@ def _oids_for(resources: List[str]) -> List[ObjectId]:
     return {d[V]: d[E] for d in docs}
 
 
-uri_beginning_pattern = re.compile(r"[a-z]\w*?://.")
+URI_BEGINNING_PATTERN = re.compile(r"[a-z]\w*?://.")
 
 
 def check_uris(resources: List[str]) -> List[str]:
-    if not all(re.match(uri_beginning_pattern, r) for r in resources):
+    if not all(re.match(URI_BEGINNING_PATTERN, r) for r in resources):
         raise ValueError("Some resources are not URIs")
     return resources
 
@@ -229,7 +229,7 @@ def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
     resources = {
         c
         for c in statement
-        if isinstance(c, str) and re.match(uri_beginning_pattern, c)
+        if isinstance(c, str) and re.match(URI_BEGINNING_PATTERN, c)
     }
     non_literals = objectIds | resources
     if not {entity, attribute} <= non_literals:
