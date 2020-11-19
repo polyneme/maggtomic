@@ -174,8 +174,15 @@ RawStatementOperation = Tuple[ObjectId, ObjectId, Any, bool]
 
 def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
     t = ObjectId()
+    t_eid = generate_id()
+    t_eid_decoded = decode_id(t_eid)
     docs = [{E: e, A: a, V: v, T: t, O: o} for (e, a, v, o) in raw_statement_operations]
-    docs.append({E: t, A: OID_GENERATED_AT_TIME, V: t.generation_time, T: t, O: True})
+    docs.extend(
+        [
+            {E: t, A: OID_GENERATED_AT_TIME, V: t.generation_time, T: t, O: True},
+            {E: t, A: OID_VAEM_ID, V: t_eid_decoded, T: t, O: True},
+        ]
+    )
     inserted_ids = db.main.insert_many(
         docs
     ).inserted_ids  # raises InvalidOperation if write is unacknowledged

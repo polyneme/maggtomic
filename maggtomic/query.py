@@ -110,15 +110,21 @@ def get_valid_bindings(conditions, db_filter):
 
 def refs_for(oids):
     out = {}
-    for doc in mdb.main.find(
-        {E: {"$in": oids}, A: {"$in": [OID_URIREF, OID_VAEM_ID]}}, [E, A, V]
-    ):
+    docs = list(
+        mdb.main.find(
+            {E: {"$in": oids}, A: {"$in": [OID_URIREF, OID_VAEM_ID]}}, [E, A, V]
+        )
+    )
+    for doc in docs:
         if doc[A] == OID_VAEM_ID and doc[E] not in out:
-            out[doc[E]] = encode_id(doc[V])
+            out[doc[E]] = "_:" + encode_id(doc[V])
         elif doc[A] == OID_URIREF:
             out[doc[E]] = doc[V]
     if len(oids) != len(out):
-        raise RuntimeError("Some oids have no refs or IDs")
+        missing = set(oids) - set(out)
+        raise RuntimeError(
+            f"{len(missing)} oids out of {len(oids)} ({missing}) have no refs or IDs"
+        )
     return out
 
 
@@ -169,4 +175,5 @@ def query(query_spec, db_filter=None):
         if "select" in query_spec
         else valid_bindings
     )
+    # TODO compact_with_prefixes after sub_refs and before return
     return sub_refs(selected)
