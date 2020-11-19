@@ -310,7 +310,6 @@ def as_of(db: Database, t: Union[ObjectId, datetime]):
 
 
 # TODO basic CRUD:
-#  - demo use case: insert map of {key: timestamp} as (key, last_updated, timestamp) statements.`
 #  - "updating" and "deleting" needs to transact retraction statements.
 
 
@@ -318,20 +317,23 @@ if __name__ == "__main__":
     from maggtomic.query import query
 
     maincoll = create_collection("main", drop_guard=False)
-    additional_prefixes = {"myns": "s://host/ns/myns#"}
+
+    additional_prefixes = {"myns": "s://host/ns/myns#", "s": "http://schema.org/"}
     key_time_statements = [
         (
             f"myns:key{n:02}",
-            "prov:generatedAtTime",
+            "s:dateModified",
             datetime(2020, 11, 1, tzinfo=timezone.utc),
         )
         for n in range(20)
     ]
     transact([add(s, use_prefixes=additional_prefixes) for s in key_time_statements])
+
     query_spec = {
+        "prefixes": additional_prefixes,
         "select": ["?key", "?dt"],
         "where": [
-            ["?key", "prov:generatedAtTime", "?sv"],
+            ["?key", "s:dateModified", "?sv"],
             [
                 "?sv",
                 "qudt:value",
@@ -347,4 +349,4 @@ if __name__ == "__main__":
     db_as_of_now = as_of(db, datetime.now(tz=timezone.utc))
     results = query(query_spec, db_filter=db_as_of_now)
     assert len(results) == len(key_time_statements)
-    assert all(k.startswith("s://host/ns/myns#key") for k in py_.pluck(results, "?key"))
+    assert all(k.startswith("myns:") for k in py_.pluck(results, "?key"))
