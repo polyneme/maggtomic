@@ -14,7 +14,7 @@ from pymongo import (
     IndexModel,
     WriteConcern,
 )
-from pymongo.database import Database
+from pymongo.collection import Collection
 from pymongo.errors import WriteError
 
 from maggtomic.util import generate_id, decode_id
@@ -118,7 +118,7 @@ LITERAL_VALUED_ATTRIBUTES = frozenset(
 _oids_cache = {}
 
 
-def create_collection(name, drop_guard=True):
+def create_collection(name="main", drop_guard=True):
     if drop_guard and name in db.list_collection_names():
         raise ValueError(f"collection `{name}` already exists in db.")
     else:
@@ -153,7 +153,7 @@ def create_collection(name, drop_guard=True):
         # higher compression than default "snappy", lower CPU usage than "zlib".
         storageEngine={"wiredTiger": {"configString": "block_compressor=zstd"}},
     )
-    _add_raw(
+    _assert_raw(
         [
             (OID_URIREF, OID_URIREF, CORE_ATTRIBUTES["rdf:resource"]),
             (
@@ -174,9 +174,22 @@ RawStatement = Tuple[ObjectId, ObjectId, Any]
 RawStatementOperation = Tuple[ObjectId, ObjectId, Any, bool]
 
 
-def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
+def generate_id_unique(coll: Collection = None, **generate_id_kwargs) -> str:
+    coll = coll or db.main
+    get_one = True
+    while get_one:
+        eid = generate_id(**generate_id_kwargs)
+        eid_decoded = decode_id(eid)
+        get_one = coll.count_documents({A: OID_VAEM_ID, V: eid_decoded}) > 0
+    return eid
+
+
+def _transact_raw(
+    raw_statement_operations: List[RawStatementOperation], coll: Collection = None
+):
+    coll = coll or db.main
     t = ObjectId()
-    t_eid = generate_id()
+    t_eid = generate_id_unique(coll=coll)
     t_eid_decoded = decode_id(t_eid)
     docs = [{E: e, A: a, V: v, T: t, O: o} for (e, a, v, o) in raw_statement_operations]
     docs.extend(
@@ -185,7 +198,8 @@ def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
             {E: t, A: OID_VAEM_ID, V: t_eid_decoded, T: t, O: True},
         ]
     )
-    inserted_ids = db.main.insert_many(
+    # TODO idempotent assert/retract, i.e. don't re-state datoms.
+    inserted_ids = coll.insert_many(
         docs
     ).inserted_ids  # raises InvalidOperation if write is unacknowledged
     if len(inserted_ids) != len(docs):
@@ -193,11 +207,11 @@ def _transact_raw(raw_statement_operations: List[RawStatementOperation]):
     return inserted_ids
 
 
-def _add_raw(raw_statements: List[RawStatement]):
-    _transact_raw([(e, a, v, True) for (e, a, v) in raw_statements])
+def _assert_raw(raw_statements: List[RawStatement], coll: Collection = None):
+    _transact_raw([(e, a, v, True) for (e, a, v) in raw_statements], coll=coll)
 
 
-def _oids_for(resources: List[str]) -> List[ObjectId]:
+def _oids_for(resources: List[str], coll: Collection = None) -> List[ObjectId]:
     check_uris(resources)
     docs = [{E: _oids_cache[r], V: r} for r in set(resources) & set(_oids_cache)]
     missing = list(set(resources) - {d[V] for d in docs})
@@ -206,7 +220,9 @@ def _oids_for(resources: List[str]) -> List[ObjectId]:
         missing = list(set(resources) - {d[V] for d in docs})
         if missing:  # not in database? add to database.
             new_oids = {r: ObjectId() for r in missing}
-            _add_raw([(oid, OID_URIREF, r) for r, oid in new_oids.items()])
+            _assert_raw(
+                [(oid, OID_URIREF, r) for r, oid in new_oids.items()], coll=coll
+            )
             docs.extend([{E: oid, V: r} for r, oid in new_oids.items()])
     for d in docs:
         _oids_cache[d[V]] = d[E]
@@ -225,7 +241,9 @@ def check_uris(resources: List[str]) -> List[str]:
 ExpandedStatement = Tuple[Union[str, ObjectId], Union[str, ObjectId], Any]
 
 
-def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
+def _compile_to_raw(
+    statement: ExpandedStatement, coll: Collection = None
+) -> RawStatement:
     entity, attribute, value = statement
     objectIds = {c for c in statement if isinstance(c, ObjectId)}
     resources = {
@@ -244,7 +262,7 @@ def _compile_to_raw(statement: ExpandedStatement) -> RawStatement:
             "Value must be a non-literal, e.g. a (compact) URI, unless attribute is one of "
             f"{{vaem:id, qudt:value}}. Input statement: {statement}."
         )
-    rmap = _oids_for(resources)
+    rmap = _oids_for(resources, coll=coll)
     return (
         rmap.get(entity, entity),
         rmap.get(attribute, attribute),
@@ -256,13 +274,13 @@ UserStatement = Tuple[str, str, Any]
 
 
 def _ensure_structured_literal(
-    statement: UserStatement, use_prefixes=None
+    statement: UserStatement, use_prefixes=None, coll: Collection = None
 ) -> List[ExpandedStatement]:
     e_user, a_user, v_user = prefix_expand(statement, use_prefixes=use_prefixes)
-    v_user_is_uri = isinstance(v_user, str) and re.match(uri_beginning_pattern, v_user)
+    v_user_is_uri = isinstance(v_user, str) and re.match(URI_BEGINNING_PATTERN, v_user)
     if not v_user_is_uri and a_user not in LITERAL_VALUED_ATTRIBUTES:
         new_oid = ObjectId()
-        v_eid = generate_id()
+        v_eid = generate_id_unique(coll=coll)
         v_eid_decoded = decode_id(v_eid)
         expanded_statements = [
             (e_user, a_user, new_oid),
@@ -274,29 +292,46 @@ def _ensure_structured_literal(
     return expanded_statements
 
 
-def add(statement: UserStatement, use_prefixes=None) -> List[RawStatementOperation]:
-    expanded_statements = _ensure_structured_literal(
-        statement, use_prefixes=use_prefixes
+def assert_(
+    statement: UserStatement, use_prefixes=None, coll: Collection = None
+) -> List[RawStatementOperation]:
+    return assert_or_retract(
+        statement, is_assert=True, use_prefixes=use_prefixes, coll=coll
     )
-    raw_statements = [_compile_to_raw(s) for s in expanded_statements]
-    return [(e, a, v, True) for (e, a, v) in raw_statements]
 
 
-def retract(statement: UserStatement, use_prefixes=None) -> List[RawStatementOperation]:
-    expanded_statements = _ensure_structured_literal(
-        statement, use_prefixes=use_prefixes
+def retract(
+    statement: UserStatement, use_prefixes=None, coll: Collection = None
+) -> List[RawStatementOperation]:
+    return assert_or_retract(
+        statement, is_assert=False, use_prefixes=use_prefixes, coll=coll
     )
-    raw_statements = [_compile_to_raw(s) for s in expanded_statements]
-    return [(e, a, v, False) for (e, a, v) in raw_statements]
 
 
-def transact(rso_sequence: List[List[RawStatementOperation]]):
-    _transact_raw(py_.flatten(rso_sequence))
+def assert_or_retract(
+    statement: UserStatement, is_assert=True, use_prefixes=None, coll: Collection = None
+) -> List[RawStatementOperation]:
+    expanded_statements = _ensure_structured_literal(
+        statement, use_prefixes=use_prefixes, coll=coll
+    )
+    raw_statements = [_compile_to_raw(s, coll=coll) for s in expanded_statements]
+    return [(e, a, v, is_assert) for (e, a, v) in raw_statements]
 
 
-def as_of(db: Database, t: Union[ObjectId, datetime]):
+def transact(rso_sequence: List[List[RawStatementOperation]], coll: Collection = None):
+    _transact_raw(py_.flatten(rso_sequence), coll=coll)
+
+
+def as_of(coll: Collection, t: Union[ObjectId, datetime]):
+    """Returns a higher-order filter that can produce a collection cursor.
+
+    A higher-order filter for collection coll is a function that, when passed a filter F, combines a previously
+    specified filter (based on the value t given to as_of) with the filter F, and returns a cursor over the collection
+    coll using the combined filter.
+
+    """
     if isinstance(t, datetime):
-        oid = db.main.find_one(
+        oid = coll.find_one(
             {A: OID_GENERATED_AT_TIME, V: {"$lte": t}}, [E], sort=[(T, DESC)]
         )[E]
     else:
@@ -304,19 +339,25 @@ def as_of(db: Database, t: Union[ObjectId, datetime]):
 
     def docs_for(filter_):
         py_.set_(filter_, [T, "$lte"], oid)
-        return db.main.find(filter_)
+        return coll.find(filter_)
 
-    return docs_for
+    return docs_for, coll
 
 
-# TODO basic CRUD:
-#  - "updating" and "deleting" needs to transact retraction statements.
+# TODO basic CRUD
+#  or rather, "ARAR" (pirate voice): create->assert, read->read, update->accumulate, delete->retract.
+#  - idempotent assert/retract, i.e. don't re-state datoms.
+#  - "update"
+#    - accumulate for cardinality/many
+#    - "replace" for cardinality/one, i.e. retract and assert.
+#    - "replace iff" for cardinality/one, i.e. compare-and-swap (CAS).
+#  - "delete", i.e. retract
 
 
 if __name__ == "__main__":
     from maggtomic.query import query
 
-    maincoll = create_collection("main", drop_guard=False)
+    mycoll = create_collection(drop_guard=False)
 
     additional_prefixes = {"myns": "s://host/ns/myns#", "s": "http://schema.org/"}
     key_time_statements = [
@@ -327,7 +368,9 @@ if __name__ == "__main__":
         )
         for n in range(20)
     ]
-    transact([add(s, use_prefixes=additional_prefixes) for s in key_time_statements])
+    transact(
+        [assert_(s, use_prefixes=additional_prefixes) for s in key_time_statements]
+    )
 
     query_spec = {
         "prefixes": additional_prefixes,
@@ -346,7 +389,7 @@ if __name__ == "__main__":
             ],
         ],
     }
-    db_as_of_now = as_of(db, datetime.now(tz=timezone.utc))
-    results = query(query_spec, db_filter=db_as_of_now)
+    coll_as_of_now = as_of(mycoll, datetime.now(tz=timezone.utc))
+    results = query(query_spec, coll_hof=coll_as_of_now)
     assert len(results) == len(key_time_statements)
     assert all(k.startswith("myns:") for k in py_.pluck(results, "?key"))

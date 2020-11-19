@@ -24,8 +24,9 @@ from maggtomic import (
 from maggtomic.util import encode_id
 
 
-def compile_graph_pattern(graph_pattern, use_prefixes=None):
+def compile_graph_pattern(graph_pattern, use_prefixes=None, coll_hof=None):
     """prefix_expand and get oids_for terms, so can pass result to cursor_for"""
+    coll_hof = coll_hof or as_of(mdb.main, datetime.now(tz=timezone.utc))
     if not all(isinstance(line, list) for line in graph_pattern):
         raise ValueError("graph_pattern must be an iterable of lists/tuples")
     expanded_resource = {}
@@ -34,7 +35,13 @@ def compile_graph_pattern(graph_pattern, use_prefixes=None):
         for (i, spec), field in zip(enumerate(expanded_line), (E, A, V)):
             if isinstance(spec, str) and not spec.startswith("?"):
                 expanded_resource[line[i]] = spec
-    expanded_resource_oid = _oids_for(list(expanded_resource.values()))
+    # TODO Needs access to full underlying collection, not just filter-extendable cursor,
+    #  because may need to create new objectIds for new resources. Should be able to short-circuit
+    #  this for the case of queries because resources without objectIds will not satisfy any query
+    #  conditions. Low priority, but would enable removal of direct access to collection.
+    expanded_resource_oid = _oids_for(
+        list(expanded_resource.values()), coll=coll_hof[1]
+    )
     oid_for = {
         r: expanded_resource_oid[expanded_resource[r]] for r in expanded_resource.keys()
     }
@@ -47,7 +54,7 @@ def compile_graph_pattern(graph_pattern, use_prefixes=None):
     return out
 
 
-def cursor_for(condition, db_filter):
+def cursor_for(condition, coll_hof):
     filter_ = {}
     for spec, field in zip(condition, (E, A, V)):
         if isinstance(spec, dict):
@@ -58,7 +65,7 @@ def cursor_for(condition, db_filter):
             filter_[field] = spec
         elif not isinstance(spec, str):
             raise ValueError(f"Unsupported type {type(spec)} for spec")
-    return db_filter(filter_)
+    return coll_hof[0](filter_)
 
 
 def get_doc_binder(condition):
@@ -98,12 +105,12 @@ def merge_binding_collections(bindings1, bindings2):
     return merged
 
 
-def get_valid_bindings(conditions, db_filter):
+def get_valid_bindings(conditions, coll_hof):
     condition_bindings = []
     for c in conditions:
         bindings = []
         doc_binding = get_doc_binder(c)
-        for doc in cursor_for(c, db_filter):
+        for doc in cursor_for(c, coll_hof):
             binding = doc_binding(doc)
             if binding is not None:
                 bindings.append(binding)
@@ -112,13 +119,10 @@ def get_valid_bindings(conditions, db_filter):
     return valid_bindings
 
 
-def refs_for(oids):
+def refs_for(oids, coll_hof=None):
+    coll_hof = coll_hof or as_of(mdb.main, datetime.now(tz=timezone.utc))
     out = {}
-    docs = list(
-        mdb.main.find(
-            {E: {"$in": oids}, A: {"$in": [OID_URIREF, OID_VAEM_ID]}}, [E, A, V]
-        )
-    )
+    docs = list(coll_hof[0]({E: {"$in": oids}, A: {"$in": [OID_URIREF, OID_VAEM_ID]}}))
     for doc in docs:
         if doc[A] == OID_VAEM_ID and doc[E] not in out:
             out[doc[E]] = "_:" + encode_id(doc[V])
@@ -132,13 +136,13 @@ def refs_for(oids):
     return out
 
 
-def sub_refs(selected):
+def sub_refs(selected, coll_hof=None):
     oid_places = []
     for i, s in enumerate(selected):
         for k, v in s.items():
             if isinstance(v, ObjectId):
                 oid_places.append((i, k, v))
-    refs = refs_for([o_p[2] for o_p in oid_places])
+    refs = refs_for([o_p[2] for o_p in oid_places], coll_hof=coll_hof)
     out = [s.copy() for s in selected]
     for (i, k, v) in oid_places:
         py_.set_(out[i], k, refs[v])
@@ -165,7 +169,7 @@ def prefix_compact(bindings: List[dict], use_prefixes=None) -> List[dict]:
     return out
 
 
-def query(query_spec, db_filter=None):
+def query(query_spec, coll_hof=None):
     """Query data sources.
 
     :param query_spec: a dictionary with these keys:
@@ -175,7 +179,7 @@ def query(query_spec, db_filter=None):
       - params: (optional) names mapping to the provided `args`. [NOT YET IMPLEMENTED]
       - args: (optional) data sources for the query. [NOT YET IMPLEMENTED]
 
-    :param db_filter: the data source for the query.
+    :param coll_hof: a collection higher-order filter, i.e. the data source for the query.
 
     The query language notation for use in `where` can be imagined as an unholy reverse-orthology (i.e., a common
     ancestor) of the query forms of MongoDB and Datalog -- its code name is "mongortholog".
@@ -188,12 +192,12 @@ def query(query_spec, db_filter=None):
     the selected variable names.
 
     """
-    if db_filter is None:
-        db_filter = as_of(mdb, datetime.now(tz=timezone.utc))
+    if coll_hof is None:
+        coll_hof = as_of(mdb.main, datetime.now(tz=timezone.utc))
     conditions = compile_graph_pattern(
-        query_spec["where"], use_prefixes=query_spec.get("prefixes")
+        query_spec["where"], use_prefixes=query_spec.get("prefixes"), coll_hof=coll_hof
     )
-    valid_bindings = get_valid_bindings(conditions, db_filter=db_filter)
+    valid_bindings = get_valid_bindings(conditions, coll_hof=coll_hof)
     selected_bindings = (
         [py_.pick(v, *query_spec["select"]) for v in valid_bindings]
         if "select" in query_spec
@@ -201,5 +205,6 @@ def query(query_spec, db_filter=None):
     )
     # TODO compact_with_prefixes after sub_refs and before return
     return prefix_compact(
-        sub_refs(selected_bindings), use_prefixes=query_spec.get("prefixes")
+        sub_refs(selected_bindings, coll_hof=coll_hof),
+        use_prefixes=query_spec.get("prefixes"),
     )
