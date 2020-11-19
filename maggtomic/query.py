@@ -1,7 +1,9 @@
+import re
 from datetime import datetime, timezone
 from copy import copy
 import functools
 import itertools
+from typing import List
 
 from bson import ObjectId
 from pydash import py_
@@ -16,6 +18,8 @@ from maggtomic import (
     V,
     OID_URIREF,
     OID_VAEM_ID,
+    PREFIXES,
+    URI_BEGINNING_PATTERN,
 )
 from maggtomic.util import encode_id
 
@@ -141,6 +145,26 @@ def sub_refs(selected):
     return out
 
 
+def prefix_compact(bindings: List[dict], use_prefixes=None) -> List[dict]:
+    prefix = PREFIXES.copy()
+    if use_prefixes is not None:
+        prefix.update(use_prefixes)
+    out = []
+    for b in bindings:
+        b_new = {}
+        for (k, v) in b.items():
+            v_new = v
+            if isinstance(v, str) and re.match(URI_BEGINNING_PATTERN, v):
+                for p, expanded in prefix.items():
+                    if v.startswith(expanded):
+                        local_name = v.split(expanded, 1)[1]
+                        v_new = f"{p}:{local_name}"
+                        break
+            b_new[k] = v_new
+        out.append(b_new)
+    return out
+
+
 def query(query_spec, db_filter=None):
     """Query data sources.
 
@@ -170,10 +194,12 @@ def query(query_spec, db_filter=None):
         query_spec["where"], use_prefixes=query_spec.get("prefixes")
     )
     valid_bindings = get_valid_bindings(conditions, db_filter=db_filter)
-    selected = (
+    selected_bindings = (
         [py_.pick(v, *query_spec["select"]) for v in valid_bindings]
         if "select" in query_spec
         else valid_bindings
     )
     # TODO compact_with_prefixes after sub_refs and before return
-    return sub_refs(selected)
+    return prefix_compact(
+        sub_refs(selected_bindings), use_prefixes=query_spec.get("prefixes")
+    )
