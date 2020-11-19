@@ -62,17 +62,17 @@ CORE_CURIES = ("rdf:resource", "prov:generatedAtTime", "vaem:id", "qudt:value")
 # Stable ObjectId to map an arbitrary ObjectId to an RDF URI Reference,
 # akin to the use of rdf:resource in XML to map an XML node to RDF URI Reference --
 # an internal bridge from MongoDB-land to RDF-land.
-OID_URIREF = ObjectId.from_datetime(datetime(1970, 1, 1, 0, tzinfo=timezone.utc))
+OID_URIREF = ObjectId.from_datetime(datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
 
 # Stable ObjectId to map to prov:generatedAtTime, for transaction wall-times.
 OID_GENERATED_AT_TIME = ObjectId.from_datetime(
-    datetime(1970, 1, 1, 1, tzinfo=timezone.utc)
+    datetime(1970, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
 )
 
 # Stable ObjectId to map to vaem:id, for local (integer-encoded, Crockford Base32) IDs.
 # Every database entity should be associated with either a URI reference via rdf:resource
 # (preferred -- yay Linked Data!) or a local ID via vaem:id, or both.
-OID_VAEM_ID = ObjectId.from_datetime(datetime(1970, 1, 1, 2, tzinfo=timezone.utc))
+OID_VAEM_ID = ObjectId.from_datetime(datetime(1970, 1, 1, 0, 0, 2, tzinfo=timezone.utc))
 
 # Stable ObjectId to map to qudt:value, for use in describing structured values
 # (https://www.w3.org/TR/rdf-schema/#ch_value). Every stored statement value should be an ObjectId
@@ -84,7 +84,9 @@ OID_VAEM_ID = ObjectId.from_datetime(datetime(1970, 1, 1, 2, tzinfo=timezone.utc
 # i.e. inclusion of qudt:unit, qudt:standardUncertainty,
 # qudt:dataType (qudt:basis, qudt:cardinality, qudt:orderedType, qudt:pythonName, etc.), etc.
 # in addition to the qudt:value literal for a structured value.
-OID_QUDT_VALUE = ObjectId.from_datetime(datetime(1970, 1, 1, 3, tzinfo=timezone.utc))
+OID_QUDT_VALUE = ObjectId.from_datetime(
+    datetime(1970, 1, 1, 0, 0, 3, tzinfo=timezone.utc)
+)
 
 
 def prefix_expand(items: Iterable, use_prefixes=None) -> list:
