@@ -76,7 +76,6 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-repl.ipynb
 
 # IPython
 profile_default/
@@ -133,3 +132,8 @@ dmypy.json
 .idea/
 
 .DS_Store
+
+# project-specific
+repl.ipynb
+nmdc.schema.json
+nmdc_database.json
