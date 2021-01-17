@@ -1,7 +1,10 @@
 from setuptools import setup, find_packages
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+with open("README.md") as f:
+    long_description = f.read()
+
+with open("requirements/main.in") as f:
+    install_requires = f.read().splitlines()
 
 setup(
     name="maggtomic",
@@ -20,5 +23,6 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
     ],
+    install_requires=install_requires,
     python_requires=">=3.6",
 )
