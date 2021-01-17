@@ -15,6 +15,7 @@ def publish(c):
     major_minor, dot, patch = vtag.rpartition(".")
     vtag_new = major_minor + dot + str(int(patch) + 1)
     run(["git", "tag", vtag_new])
+    run(["git", "push"])
     run(["git", "push", "--tags"])
     c.run("rm dist/*.*", warn=True)
     c.run("python setup.py sdist bdist_wheel")
