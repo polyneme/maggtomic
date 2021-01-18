@@ -102,9 +102,10 @@ Thus, an example "subject-event" (i.e. `prov:activity`-`prov:qualifiedInfluence`
 After applying path machines to each found path item in a repository, we have a little metadata store separate from our
 main one. We can then supply a set of rules to harvest additional metadata based on what resources are newly of
 interest. We can fetch resources (i.e. objects and files) to which path items point, "atomize" them based on their MIME
-type (e.g. convert application/json and text/csv data to datoms), and use a rule engine to coordinate the construction
-of new facts based on our accumulating metadata store (and of course we can consult our main store here as well) until
-no rules need to fire again.
+type (e.g. convert application/json and text/csv data to datoms), and use a [rule
+engine](https://en.wikipedia.org/wiki/Rule-based_system) to coordinate the construction of new facts based on our
+accumulating metadata store (and of course we can consult our main store here as well) until no rules need to fire
+again.
 
 The rules should not be computationally intensive -- this is not about deriving new resources, it is about accumulating
 relevant metadata that requires opening and parsing the given resources. After we push our new collection of metadata to
