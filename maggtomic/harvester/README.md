@@ -25,11 +25,12 @@ different aggregations of file attributes (last-modified, size, ownership, etc.)
 ## Path Machines
 
 Importantly, an *item* in the OAI-PMH sense "is conceptually a container that stores or dynamically generates metadata
-about a single resource." Using that idea, this module facilitates the definition of
-[statecharts](https://statecharts.github.io/) in the form of so-called *path machines*, i.e. finite state machines
-(FSMs) that traverse the components of a delimited path (e.g. `bucket->my->meaningful->path->to->something.json` for the
-S3 key `s3://bucket/my/meaningful/path/to/something.json`) and maintain extended state (this is partially how
-statecharts extend FSMs) to build up a metadata record that is the machine's output.
+about a single resource." Using that idea, this module facilitates the definition of statecharts
+([spec](https://www.w3.org/TR/scxml/), [intro](https://statecharts.github.io/)) in the form of so-called *path
+machines*, i.e. finite state machines (FSMs) that traverse the components of a delimited path (e.g.
+`bucket->my->meaningful->path->to->something.json` for the S3 key `s3://bucket/my/meaningful/path/to/something.json`)
+and maintain extended state (this is partially how statecharts extend FSMs) to build up a metadata record that is the
+machine's output.
 
 A path machine also takes as input the timestamp to associate with the record (e.g. the last-modified stamp for the S3
 key). In the OAI-PMH spec, a metadata record is identified unambiguously by the combination of three things: the item
