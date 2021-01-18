@@ -57,7 +57,7 @@ a seventh component to a datom (this is the last one, I promise!), one that tags
 entity tags a set of datoms -- but that facilitated an across-all-transactions partitioning of datoms akin to the
 across-all-commits partitioning of lines of code into files. I expect the principal use case for this additional datom
 component would be to shard the data into logical partitions by a "core" entity reflected either (a) in the domain (e.g.
-"the shard id is the same as a study id, so that I can quickly fetch all facts about a particular study"), or (b) in the
+"the shard id is the same as a study id, so that I can quickly fetch all facts about a particular study"), (b) in the
 physical distribution of data (e.g. "the shard id is a key to determine which datoms will be stored together on the same
 physical server"), or both.
 
