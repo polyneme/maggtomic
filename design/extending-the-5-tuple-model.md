@@ -59,7 +59,7 @@ across-all-commits partitioning of lines of code into files. I expect the princi
 component would be to shard the data into logical partitions by a "core" entity reflected either (a) in the domain (e.g.
 "the shard id is the same as a study id, so that I can quickly fetch all facts about a particular study"), or (b) in the
 physical distribution of data (e.g. "the shard id is a key to determine which datoms will be stored together on the same
-physical server").
+physical server"), or both.
 
 ## Related Work
 
