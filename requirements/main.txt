@@ -8,6 +8,22 @@ base32-lib==1.0.2 \
     --hash=sha256:09663df621bbc454079a54c92fa25d3bc33ea4a191053a09dd1e05ea4c0fe47c \
     --hash=sha256:f3cbc1c4b3df7af844c9b7ffc1638a688423db2b1e51082b2c014b3959b756ae
     # via -r requirements/main.in
+boto3==1.16.57 \
+    --hash=sha256:2fd3c2f42006988dc8ddae43c988aea481d11e2af7ab1deb83b293640357986c \
+    --hash=sha256:4a499cc2f53dd557a88c6db6a552748a2abd83ffeda70ceb71dc8db39a027314
+    # via -r requirements/main.in
+botocore==1.19.57 \
+    --hash=sha256:c756d65ffa989c5c0e92178175e41abf7b18ad19b2fe2e82e192f085e264e03a \
+    --hash=sha256:cf7d108a4d67a0fe670379111927b5d9e0ff1160146c81c326bb9e54c2b8cb19
+    # via
+    #   boto3
+    #   s3transfer
+jmespath==0.10.0 \
+    --hash=sha256:b85d0567b8666149a93172712e68920734333c0ce7e89b78b3e987f71e5ed4f9 \
+    --hash=sha256:cdf6525904cc597730141d61b36f2e4b8ecc257c420fa2f4549bac2c2d0cb72f
+    # via
+    #   boto3
+    #   botocore
 pydash==4.9.2 \
     --hash=sha256:11d8f3c92d92a004e042fdb226b10dba28f4e311546b0de89d983e91539d5e55 \
     --hash=sha256:dab98145502528369bd05034f6fb2b520297d49f942cfd51dc9cdc2cd47ec368
@@ -77,11 +93,29 @@ pymongo==3.11.2 \
     --hash=sha256:fc4946acb6cdada08f60aca103b61334995523da65be5fe816ea8571c9967d46 \
     --hash=sha256:fcc66d17a3363b7bd6d2655de8706e25a3cd1be2bd1b8e8d8a5c504a6ef893ae
     # via -r requirements/main.in
+python-dateutil==2.8.1 \
+    --hash=sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c \
+    --hash=sha256:75bb3f31ea686f1197762692a9ee6a7550b59fc6ca3a1f4b5d7e32fb98e2da2a
+    # via botocore
 python-dotenv==0.15.0 \
     --hash=sha256:0c8d1b80d1a1e91717ea7d526178e3882732420b03f08afea0406db6402e220e \
     --hash=sha256:587825ed60b1711daea4832cf37524dfd404325b7db5e25ebe88c495c9f807a0
     # via -r requirements/main.in
+s3transfer==0.3.4 \
+    --hash=sha256:1e28620e5b444652ed752cf87c7e0cb15b0e578972568c6609f0f18212f259ed \
+    --hash=sha256:7fdddb4f22275cf1d32129e21f056337fd2a80b6ccef1664528145b72c49e6d2
+    # via boto3
 six==1.15.0 \
     --hash=sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259 \
     --hash=sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced
-    # via base32-lib
+    # via
+    #   base32-lib
+    #   python-dateutil
+toolz==0.11.1 \
+    --hash=sha256:1bc473acbf1a1db4e72a1ce587be347450e8f08324908b8a266b486f408f04d5 \
+    --hash=sha256:c7a47921f07822fe534fb1c01c9931ab335a4390c782bd28c6bcc7c2f71f3fbf
+    # via -r requirements/main.in
+urllib3==1.26.2 \
+    --hash=sha256:19188f96923873c92ccb987120ec4acaa12f0461fa9ce5d3d0772bc965a39e08 \
+    --hash=sha256:d8ff90d979214d7b4f8ce956e80f4028fc6860e4431f731ea4a8c08f23f99473
+    # via botocore

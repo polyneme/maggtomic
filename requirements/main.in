@@ -1,4 +1,6 @@
 base32-lib
+boto3
 pydash
 pymongo
 python-dotenv
+toolz

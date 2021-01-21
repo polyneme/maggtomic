@@ -137,3 +137,6 @@ dmypy.json
 repl.ipynb
 nmdc.schema.json
 nmdc_database.json
+
+.env.dev
+.env.prod

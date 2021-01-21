@@ -21,6 +21,10 @@ from maggtomic.util import generate_id, decode_id
 
 load_dotenv()
 MONGO_CONNECTION_URI = os.getenv("MONGO_CONNECTION_URI")
+if MONGO_CONNECTION_URI is None:
+    MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
+    MONGO_PORT = int(os.getenv("MONGO_PORT", 27017))
+    MONGO_CONNECTION_URI = f"mongodb://{MONGO_HOST}:{MONGO_PORT}"
 MONGO_DBNAME = os.getenv("MONGO_DBNAME")
 
 client = MongoClient(MONGO_CONNECTION_URI)
