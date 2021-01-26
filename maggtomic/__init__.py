@@ -16,6 +16,7 @@ from pymongo import (
 )
 from pymongo.collection import Collection
 from pymongo.errors import WriteError
+from toolz import assoc_in, get_in
 
 from maggtomic.util import generate_id, decode_id
 
@@ -119,7 +120,27 @@ LITERAL_VALUED_ATTRIBUTES = frozenset(
     py_.properties("vaem:id", "qudt:value")(CORE_ATTRIBUTES)
 )
 
-_oids_cache = {}
+
+class NSCache:
+    """Cache partitioned by namespace (NS)."""
+
+    def __init__(self):
+        self._c = {}
+
+    def reset_ns(self, ns):
+        self._c = assoc_in(self._c, [ns], {})
+
+    def get(self, ns, key):
+        return get_in(self._c, [ns, key])
+
+    def ns(self, ns):
+        return get_in(self._c, [ns], {})
+
+    def set(self, ns, key, val):
+        self._c = assoc_in(self._c, [ns, key], val)
+
+
+_oids_cache = NSCache()
 
 
 def create_collection(name="main", drop_guard=True):
@@ -127,7 +148,7 @@ def create_collection(name="main", drop_guard=True):
         raise ValueError(f"collection `{name}` already exists in db.")
     else:
         db.drop_collection(name)
-        _oids_cache.clear()
+        _oids_cache.reset_ns(name)
     collection = db.create_collection(
         name,
         write_concern=WriteConcern(w=1, j=True),
@@ -167,7 +188,8 @@ def create_collection(name="main", drop_guard=True):
             ),
             (OID_VAEM_ID, OID_URIREF, CORE_ATTRIBUTES["vaem:id"]),
             (OID_QUDT_VALUE, OID_URIREF, CORE_ATTRIBUTES["qudt:value"]),
-        ]
+        ],
+        coll=collection,
     )
     # indexes leverage default prefix compression
     collection.create_indexes(INDEX_MODELS)
@@ -179,7 +201,6 @@ RawStatementOperation = Tuple[ObjectId, ObjectId, Any, bool]
 
 
 def generate_id_unique(coll: Collection = None, **generate_id_kwargs) -> str:
-    coll = coll or db.main
     get_one = True
     while get_one:
         eid = generate_id(**generate_id_kwargs)
@@ -191,7 +212,6 @@ def generate_id_unique(coll: Collection = None, **generate_id_kwargs) -> str:
 def _transact_raw(
     raw_statement_operations: List[RawStatementOperation], coll: Collection = None
 ):
-    coll = coll or db.main
     t = ObjectId()
     t_eid = generate_id_unique(coll=coll)
     t_eid_decoded = decode_id(t_eid)
@@ -216,11 +236,15 @@ def _assert_raw(raw_statements: List[RawStatement], coll: Collection = None):
 
 
 def _oids_for(resources: List[str], coll: Collection = None) -> List[ObjectId]:
+    collname = coll.name
     check_uris(resources)
-    docs = [{E: _oids_cache[r], V: r} for r in set(resources) & set(_oids_cache)]
+    docs = [
+        {E: _oids_cache.get(collname, r), V: r}
+        for r in set(resources) & set(_oids_cache.ns(collname))
+    ]
     missing = list(set(resources) - {d[V] for d in docs})
     if missing:  # not in cache? fetch from database.
-        docs.extend(list(db.main.find({A: OID_URIREF, V: {"$in": missing}}, [E, V])))
+        docs.extend(list(coll.find({A: OID_URIREF, V: {"$in": missing}}, [E, V])))
         missing = list(set(resources) - {d[V] for d in docs})
         if missing:  # not in database? add to database.
             new_oids = {r: ObjectId() for r in missing}
@@ -229,7 +253,7 @@ def _oids_for(resources: List[str], coll: Collection = None) -> List[ObjectId]:
             )
             docs.extend([{E: oid, V: r} for r, oid in new_oids.items()])
     for d in docs:
-        _oids_cache[d[V]] = d[E]
+        _oids_cache.set(collname, d[V], d[E])
     return {d[V]: d[E] for d in docs}
 
 
@@ -326,8 +350,8 @@ def transact(rso_sequence: List[List[RawStatementOperation]], coll: Collection =
     _transact_raw(py_.flatten(rso_sequence), coll=coll)
 
 
-def as_of(coll: Collection, t: Union[ObjectId, datetime]):
-    """Returns a higher-order filter that can produce a collection cursor.
+def _as_of_or_since(coll: Collection, t: Union[ObjectId, datetime], compare_op="$lte"):
+    """Returns a higher-order filter to produce a collection cursor that pre-filters according to t.
 
     A higher-order filter for collection coll is a function that, when passed a filter F, combines a previously
     specified filter (based on the value t given to as_of) with the filter F, and returns a cursor over the collection
@@ -335,17 +359,28 @@ def as_of(coll: Collection, t: Union[ObjectId, datetime]):
 
     """
     if isinstance(t, datetime):
+        # TODO synthesize oid if no oid in db has generation_time $gt t (o/w `since` call may error).
         oid = coll.find_one(
-            {A: OID_GENERATED_AT_TIME, V: {"$lte": t}}, [E], sort=[(T, DESC)]
+            {A: OID_GENERATED_AT_TIME, V: {compare_op: t}}, [E], sort=[(T, DESC)]
         )[E]
     else:
         oid = t
 
     def docs_for(filter_):
-        py_.set_(filter_, [T, "$lte"], oid)
+        filter_ = assoc_in(filter_, [T, compare_op], oid)
         return coll.find(filter_)
 
     return docs_for, coll
+
+
+def as_of(coll: Collection, t: Union[ObjectId, datetime]):
+    """Returns a higher-order filter to produce a collection cursor that pre-filters for transactions before or at t."""
+    return _as_of_or_since(coll, t, compare_op="$lte")
+
+
+def since(coll: Collection, t: Union[ObjectId, datetime]):
+    """Like as_of, but pre-filters collection for transactions after t."""
+    return _as_of_or_since(coll, t, compare_op="$gt")
 
 
 # TODO basic CRUD
@@ -373,7 +408,11 @@ if __name__ == "__main__":
         for n in range(20)
     ]
     transact(
-        [assert_(s, use_prefixes=additional_prefixes) for s in key_time_statements]
+        [
+            assert_(s, use_prefixes=additional_prefixes, coll=mycoll)
+            for s in key_time_statements
+        ],
+        coll=mycoll,
     )
 
     query_spec = {
